@@ -1,0 +1,180 @@
+import http from 'k6/http';
+import { check, fail, group, sleep } from 'k6';
+import { Counter, Rate, Trend } from 'k6/metrics';
+import { buildOptions } from './config.js';
+import {
+  buildUrl,
+  createRunId,
+  jsonHeaders,
+  pickAccount,
+  randomInt,
+  summarize,
+  unwrapData,
+  uniqueIdempotencyKey,
+} from './utils.js';
+
+const profile = __ENV.PROFILE || 'load';
+const baseUrl = (__ENV.BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
+const apiPrefix = (__ENV.API_PREFIX || '/api').replace(/\/$/, '');
+const seedAccounts = Number(__ENV.SEED_ACCOUNTS || 24);
+const openingBalance = Number(__ENV.OPENING_BALANCE || 25000);
+
+export const options = buildOptions(profile);
+
+http.setResponseCallback(http.expectedStatuses({ min: 200, max: 299 }, 409));
+
+const transactionDuration = new Trend('transaction_duration', true);
+const readDuration = new Trend('read_duration', true);
+const transactionConflictRate = new Rate('transaction_conflict_rate');
+const transactionCreatedCounter = new Counter('transactions_created');
+
+function apiUrl(path) {
+  return buildUrl(baseUrl, `${apiPrefix}${path}`);
+}
+
+function createAccountPayload(runId, index) {
+  return {
+    accountId: `ACC${runId}${String(index + 1).padStart(3, '0')}`,
+    holderName: `Load Test User ${index + 1}`,
+    initialBalance: openingBalance,
+  };
+}
+
+export function setup() {
+  const runId = __ENV.TEST_RUN_ID || createRunId();
+  const accounts = [];
+
+  for (let index = 0; index < seedAccounts; index++) {
+    const payload = createAccountPayload(runId, index);
+    const response = http.post(
+      apiUrl('/accounts'),
+      JSON.stringify(payload),
+      {
+        headers: jsonHeaders(),
+        tags: { endpoint: 'POST /accounts', type: 'setup' },
+      },
+    );
+
+    check(response, {
+      'setup account created': (res) => res.status === 201,
+    });
+
+    if (response.status !== 201) {
+      fail(`setup failed for account ${payload.accountId}: ${response.body}`);
+    }
+
+    accounts.push(payload.accountId);
+  }
+
+  return { accounts, runId };
+}
+
+export function listAccountsScenario() {
+  group('list accounts', () => {
+    const response = http.get(apiUrl('/accounts'), {
+      tags: { endpoint: 'GET /accounts', type: 'read' },
+    });
+
+    readDuration.add(response.timings.duration);
+
+    check(response, {
+      'accounts list status is 200': (res) => res.status === 200,
+      'accounts list is wrapped': (res) => Array.isArray(unwrapData(res)),
+    });
+  });
+
+  sleep(randomInt(1, 2));
+}
+
+export function listTransactionsScenario(data) {
+  const accountId = pickAccount(data.accounts, __ITER + __VU);
+
+  group('list transactions', () => {
+    const response = http.get(
+      apiUrl(`/transactions?limit=20&accountId=${accountId}`),
+      {
+        tags: { endpoint: 'GET /transactions', type: 'read' },
+      },
+    );
+
+    readDuration.add(response.timings.duration);
+
+    check(response, {
+      'transactions list status is 200': (res) => res.status === 200,
+      'transactions list is wrapped': (res) => Array.isArray(unwrapData(res)),
+    });
+  });
+
+  sleep(randomInt(1, 2));
+}
+
+function createTransferPayload(data) {
+  const fromIndex = (__ITER + __VU) % data.accounts.length;
+  const toIndex = (fromIndex + 1) % data.accounts.length;
+
+  return {
+    type: 'TRANSFER',
+    amount: randomInt(5, 40),
+    fromAccountId: pickAccount(data.accounts, fromIndex),
+    toAccountId: pickAccount(data.accounts, toIndex),
+    description: `k6 transfer ${profile}`,
+    idempotencyKey: uniqueIdempotencyKey('transfer'),
+  };
+}
+
+function createDepositPayload(data) {
+  const accountId = pickAccount(data.accounts, __ITER + __VU);
+
+  return {
+    type: 'DEPOSIT',
+    amount: randomInt(10, 50),
+    toAccountId: accountId,
+    description: `k6 deposit ${profile}`,
+    idempotencyKey: uniqueIdempotencyKey('deposit'),
+  };
+}
+
+function postTransaction(payload) {
+  const response = http.post(
+    apiUrl('/transactions'),
+    JSON.stringify(payload),
+    {
+      headers: jsonHeaders(),
+      tags: { endpoint: 'POST /transactions', type: 'write', tx_type: payload.type },
+    },
+  );
+
+  transactionDuration.add(response.timings.duration, { tx_type: payload.type });
+  transactionConflictRate.add(response.status === 409);
+
+  if (response.status === 201) {
+    transactionCreatedCounter.add(1, { tx_type: payload.type });
+  }
+
+  check(response, {
+    'transaction request accepted': (res) =>
+      res.status === 201 || res.status === 409,
+    'transaction body is wrapped on success': (res) =>
+      res.status !== 201 || !!unwrapData(res)?.txId,
+  });
+}
+
+export function createTransferScenario(data) {
+  group('create transfer transaction', () => {
+    postTransaction(createTransferPayload(data));
+  });
+
+  sleep(randomInt(0, 1));
+}
+
+export function createDepositScenario(data) {
+  group('create deposit transaction', () => {
+    postTransaction(createDepositPayload(data));
+  });
+
+  sleep(randomInt(0, 1));
+}
+
+export function handleSummary(data) {
+  return summarize(data);
+}
