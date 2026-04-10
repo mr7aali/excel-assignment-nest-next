@@ -93,6 +93,20 @@ export function getTransactionTypeLabel(type: TransactionRequestType) {
   return 'Transfer';
 }
 
+export function getNextAccountId(accounts: Account[]) {
+  const nextNumber =
+    accounts.reduce((maxValue, account) => {
+      const match = account.accountId.match(/(\d+)$/);
+      const numericValue = match ? Number(match[1]) : 0;
+
+      return Number.isFinite(numericValue) && numericValue > maxValue
+        ? numericValue
+        : maxValue;
+    }, 1000) + 1;
+
+  return `ACC${String(nextNumber).padStart(4, '0')}`;
+}
+
 export async function requestJson<T>(
   path: string,
   init?: RequestInit,

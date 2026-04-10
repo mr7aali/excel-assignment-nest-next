@@ -16,6 +16,7 @@ import {
   type Transaction,
   type TransactionFormState,
   type TransactionRequestType,
+  getNextAccountId,
   SOCKET_URL,
   defaultAccountForm,
   defaultTransactionForm,
@@ -102,6 +103,18 @@ export default function Home() {
     }));
   }
 
+  function handleOpenCreateAccountForm() {
+    setAccountForm({
+      ...defaultAccountForm,
+      accountId: getNextAccountId(accounts),
+    });
+    setShowCreateAccountForm(true);
+  }
+
+  function handleCloseCreateAccountForm() {
+    setShowCreateAccountForm(false);
+  }
+
   function handleTransactionFieldChange(
     field: Exclude<keyof TransactionFormState, 'type'>,
     value: string,
@@ -148,6 +161,7 @@ export default function Home() {
       });
 
       setAccountForm(defaultAccountForm);
+      setShowCreateAccountForm(false);
       setSuccessMessage('Account created successfully.');
       void loadDashboardData();
     } catch (error) {
@@ -330,12 +344,11 @@ export default function Home() {
           showCreateAccountForm={showCreateAccountForm}
           submittingAccount={submittingAccount}
           onAccountFieldChange={handleAccountFormChange}
+          onCloseCreateAccountForm={handleCloseCreateAccountForm}
           onRefresh={() => void loadDashboardData()}
           onSelectAccount={setSelectedAccountId}
           onSubmit={handleCreateAccount}
-          onToggleCreateAccountForm={() =>
-            setShowCreateAccountForm((current) => !current)
-          }
+          onToggleCreateAccountForm={handleOpenCreateAccountForm}
         />
       </section>
 

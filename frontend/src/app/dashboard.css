@@ -455,6 +455,58 @@
   );
 }
 
+.ds-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.ds-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(17, 24, 39, 0.48);
+}
+
+.ds-modal__surface {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 34rem);
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: 20px;
+  background: var(--color-background-secondary);
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.18);
+  padding: 1rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.ds-modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.ds-modal__title {
+  margin: 0;
+  font-size: 1.1rem;
+  line-height: 1.2;
+}
+
+.ds-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.ds-modal__actions .ds-btn {
+  width: auto;
+}
+
 @media (max-width: 767px) {
   .ds-main-grid {
     grid-template-columns: 1fr;
@@ -500,5 +552,14 @@
   .ds-account-item__bottom {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .ds-modal__header,
+  .ds-modal__actions {
+    flex-direction: column;
+  }
+
+  .ds-modal__actions .ds-btn {
+    width: 100%;
   }
 }
