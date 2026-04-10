@@ -8,6 +8,10 @@ import { ResponseInterceptor } from './interceptors/response.interceptor';
 export function configureApp(app: INestApplication): INestApplication {
   const globalPrefix = process.env.GLOBAL_PREFIX ?? 'api';
 
+  app.enableCors({
+    origin: true,
+    credentials: false,
+  });
   app.setGlobalPrefix(globalPrefix);
   app.useGlobalPipes(
     new ValidationPipe({

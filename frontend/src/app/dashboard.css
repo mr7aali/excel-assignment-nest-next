@@ -1,0 +1,565 @@
+:root {
+  --color-background-primary: #f4f5f7;
+  --color-background-secondary: #ffffff;
+  --color-text-primary: #111827;
+  --color-text-secondary: #4b5563;
+  --color-text-tertiary: #6b7280;
+  --color-border-tertiary: #e5e7eb;
+  --color-border-secondary: #d1d5db;
+  --color-background-success: #ecfdf3;
+  --color-background-danger: #fff1f2;
+  --color-background-warning: #fff7e8;
+  --color-text-success: #027a48;
+  --color-text-danger: #b42318;
+  --color-text-warning: #b54708;
+}
+
+.ds-shell {
+  width: min(1200px, calc(100% - 1.5rem));
+  margin: 0 auto;
+  padding: 1rem 0 1.5rem;
+  display: grid;
+  gap: 0.75rem;
+  color: var(--color-text-primary);
+}
+
+.ds-topbar,
+.ds-panel,
+.ds-stat,
+.ds-flash {
+  border: 1px solid var(--color-border-tertiary);
+  background: var(--color-background-secondary);
+}
+
+.ds-topbar,
+.ds-panel {
+  border-radius: 18px;
+}
+
+.ds-topbar {
+  padding: 0.875rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.ds-topbar__title {
+  min-width: 0;
+}
+
+.ds-topbar__eyebrow {
+  display: inline-block;
+  margin-bottom: 0.2rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.ds-topbar h1,
+.ds-panel__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.ds-select {
+  min-width: min(100%, 280px);
+  display: grid;
+  gap: 0.35rem;
+}
+
+.ds-select > span,
+.ds-stat > span,
+.ds-form-row > span,
+.ds-table-head {
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.ds-select__control,
+.ds-form-row input,
+.ds-form-row select {
+  min-height: 40px;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: 12px;
+  background: var(--color-background-secondary);
+}
+
+.ds-select__control {
+  display: flex;
+  align-items: center;
+  padding: 0 0.8rem;
+}
+
+.ds-select select,
+.ds-form-row input,
+.ds-form-row select {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  outline: none;
+  font: inherit;
+}
+
+.ds-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.ds-stat {
+  border-radius: 16px;
+  padding: 0.85rem 0.95rem;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.ds-stat strong {
+  font-size: 1.2rem;
+  line-height: 1.15;
+}
+
+.ds-stat p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.84rem;
+}
+
+.ds-flash-stack {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.ds-flash {
+  margin: 0;
+  border-radius: 14px;
+  padding: 0.75rem 0.9rem;
+  color: var(--color-text-secondary);
+  font-size: 0.92rem;
+}
+
+.ds-flash--error {
+  background: var(--color-background-danger);
+  color: var(--color-text-danger);
+}
+
+.ds-flash--success {
+  background: var(--color-background-success);
+  color: var(--color-text-success);
+}
+
+.ds-main-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.ds-panel {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ds-panel__header {
+  padding: 0.85rem 1rem 0;
+}
+
+.ds-panel__body {
+  padding: 0.85rem 1rem 1rem;
+}
+
+.ds-panel__body--flush {
+  padding: 0;
+}
+
+.ds-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid var(--color-border-tertiary);
+  background: color-mix(
+    in srgb,
+    var(--color-background-primary) 45%,
+    var(--color-background-secondary)
+  );
+}
+
+.ds-tab,
+.ds-btn,
+.ds-account-item {
+  font: inherit;
+}
+
+.ds-tab,
+.ds-btn {
+  min-height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--color-border-tertiary);
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease,
+    transform 120ms ease;
+}
+
+.ds-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.8rem;
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+
+.ds-tab:hover,
+.ds-btn:hover {
+  transform: translateY(-1px);
+}
+
+.ds-tab--active {
+  border-color: var(--color-border-secondary);
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+}
+
+.ds-tab--ghost {
+  margin-left: auto;
+  background: transparent;
+}
+
+.ds-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.ds-form-row {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.ds-form-row--single {
+  grid-column: 1 / -1;
+}
+
+.ds-transaction-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.ds-transaction-tab {
+  width: 100%;
+  justify-content: center;
+}
+
+.ds-btn {
+  display: inline-flex;
+  align-items: center;
+  width: 100%;
+  justify-content: center;
+  padding: 0 0.95rem;
+  background: var(--color-text-primary);
+  border-color: var(--color-text-primary);
+  color: var(--color-background-secondary);
+  font-weight: 700;
+}
+
+.ds-btn--secondary {
+  width: auto;
+  background: var(--color-background-secondary);
+  border-color: var(--color-border-secondary);
+  color: var(--color-text-primary);
+}
+
+.ds-btn:disabled {
+  cursor: wait;
+  opacity: 0.65;
+  transform: none;
+}
+
+.ds-list {
+  display: grid;
+  max-height: 360px;
+  overflow: auto;
+}
+
+.ds-empty {
+  margin: 0;
+  padding: 0.9rem 1rem;
+  color: var(--color-text-secondary);
+}
+
+.ds-account-item,
+.ds-event-item {
+  width: 100%;
+  padding: 0.9rem 1rem;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid var(--color-border-tertiary);
+  background: var(--color-background-secondary);
+}
+
+.ds-account-item {
+  display: grid;
+  gap: 0.65rem;
+  cursor: pointer;
+}
+
+.ds-account-item:last-child,
+.ds-event-item:last-child {
+  border-bottom: 0;
+}
+
+.ds-account-item--active {
+  background: color-mix(
+    in srgb,
+    var(--color-background-primary) 55%,
+    var(--color-background-secondary)
+  );
+}
+
+.ds-account-item__top,
+.ds-account-item__bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.ds-account-item__top strong,
+.ds-event-item strong {
+  display: block;
+  margin: 0;
+  font-size: 0.94rem;
+}
+
+.ds-account-item__top p,
+.ds-event-item p,
+.ds-event-item span {
+  margin: 0.15rem 0 0;
+  color: var(--color-text-secondary);
+  font-size: 0.84rem;
+}
+
+.ds-account-item__bottom {
+  color: var(--color-text-tertiary);
+  font-size: 0.79rem;
+}
+
+.ds-badge,
+.ds-capsule,
+.ds-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 0.7rem;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.ds-badge {
+  background: var(--color-background-warning);
+  color: var(--color-text-warning);
+}
+
+.ds-badge--active,
+.ds-pill--success {
+  background: var(--color-background-success);
+  color: var(--color-text-success);
+}
+
+.ds-capsule {
+  background: color-mix(
+    in srgb,
+    var(--color-background-primary) 75%,
+    var(--color-background-secondary)
+  );
+  color: var(--color-text-primary);
+  text-transform: capitalize;
+}
+
+.ds-pill {
+  text-transform: capitalize;
+}
+
+.ds-pill--pending {
+  background: var(--color-background-warning);
+  color: var(--color-text-warning);
+}
+
+.ds-pill--failed {
+  background: var(--color-background-danger);
+  color: var(--color-text-danger);
+}
+
+.ds-event-item {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.ds-table {
+  max-height: 380px;
+  overflow: auto;
+}
+
+.ds-table-header,
+.ds-table-row {
+  display: grid;
+  grid-template-columns: 110px minmax(220px, 1.5fr) 130px 120px 180px;
+  gap: 0.75rem;
+  align-items: center;
+  min-width: 760px;
+}
+
+.ds-table-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--color-border-tertiary);
+  background: var(--color-background-secondary);
+}
+
+.ds-table-row {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--color-border-tertiary);
+  font-size: 0.9rem;
+}
+
+.ds-table-row:last-child {
+  border-bottom: 0;
+}
+
+.ds-inline-create-account {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem 1rem;
+  border-top: 1px solid var(--color-border-tertiary);
+  background: color-mix(
+    in srgb,
+    var(--color-background-primary) 35%,
+    var(--color-background-secondary)
+  );
+}
+
+.ds-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.ds-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(17, 24, 39, 0.48);
+}
+
+.ds-modal__surface {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 34rem);
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: 20px;
+  background: var(--color-background-secondary);
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.18);
+  padding: 1rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.ds-modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.ds-modal__title {
+  margin: 0;
+  font-size: 1.1rem;
+  line-height: 1.2;
+}
+
+.ds-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.ds-modal__actions .ds-btn {
+  width: auto;
+}
+
+@media (max-width: 767px) {
+  .ds-main-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ds-topbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 639px) {
+  .ds-shell {
+    width: min(100% - 1rem, 1200px);
+    padding-top: 0.75rem;
+  }
+
+  .ds-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ds-form {
+    grid-template-columns: 1fr;
+  }
+
+  .ds-form-row--single {
+    grid-column: auto;
+  }
+
+  .ds-transaction-tabs {
+    grid-template-columns: 1fr;
+  }
+
+  .ds-tabs {
+    flex-wrap: wrap;
+  }
+
+  .ds-tab--ghost {
+    margin-left: 0;
+  }
+
+  .ds-account-item__top,
+  .ds-account-item__bottom {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .ds-modal__header,
+  .ds-modal__actions {
+    flex-direction: column;
+  }
+
+  .ds-modal__actions .ds-btn {
+    width: 100%;
+  }
+}

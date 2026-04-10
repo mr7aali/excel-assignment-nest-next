@@ -1,65 +1,362 @@
-import Image from "next/image";
+'use client';
+
+import './dashboard.css';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { io, Socket } from 'socket.io-client';
+import { AccountsPanel } from '../_components/accounts-panel';
+import { DashboardFlashMessages } from '../_components/dashboard-flash-messages';
+import { DashboardStats } from '../_components/dashboard-stats';
+import { DashboardTopbar } from '../_components/dashboard-topbar';
+import { TransactionFormPanel } from '../_components/transaction-form-panel';
+import { TransactionsPanel } from '../_components/transactions-panel';
+import {
+  type Account,
+  type AccountFormState,
+  type ApiResponse,
+  type Transaction,
+  type TransactionFormState,
+  type TransactionRequestType,
+  getNextAccountId,
+  SOCKET_URL,
+  defaultAccountForm,
+  defaultTransactionForm,
+  requestJson,
+} from '../_lib/dashboard';
 
 export default function Home() {
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState('');
+  const [showCreateAccountForm, setShowCreateAccountForm] = useState(false);
+  const [accountForm, setAccountForm] = useState(defaultAccountForm);
+  const [transactionForm, setTransactionForm] = useState(
+    defaultTransactionForm,
+  );
+  const [loading, setLoading] = useState(true);
+  const [submittingAccount, setSubmittingAccount] = useState(false);
+  const [submittingTransaction, setSubmittingTransaction] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const selectedAccount = useMemo(
+    () =>
+      accounts.find((account) => account.accountId === selectedAccountId) ??
+      accounts[0] ??
+      null,
+    [accounts, selectedAccountId],
+  );
+
+  const selectedTransactions = useMemo(() => {
+    if (!selectedAccount) {
+      return transactions;
+    }
+
+    return transactions.filter(
+      (transaction) =>
+        transaction.fromAccount?.accountId === selectedAccount.accountId ||
+        transaction.toAccount?.accountId === selectedAccount.accountId,
+    );
+  }, [selectedAccount, transactions]);
+
+  const selectedSuccessCount = useMemo(
+    () =>
+      selectedTransactions.filter(
+        (transaction) => transaction.status === 'success',
+      ).length,
+    [selectedTransactions],
+  );
+
+  const needsFromAccount =
+    transactionForm.type === 'WITHDRAW' || transactionForm.type === 'TRANSFER';
+  const needsToAccount =
+    transactionForm.type === 'DEPOSIT' || transactionForm.type === 'TRANSFER';
+
+  async function loadDashboardData() {
+    setLoading(true);
+    try {
+      const [accountsResponse, transactionsResponse] = await Promise.all([
+        requestJson<ApiResponse<Account[]>>('/accounts'),
+        requestJson<ApiResponse<Transaction[]>>('/transactions?limit=12'),
+      ]);
+
+      setAccounts(accountsResponse.data);
+      setTransactions(transactionsResponse.data);
+      setErrorMessage(null);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : 'Unable to load dashboard data',
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleAccountFormChange(
+    field: keyof AccountFormState,
+    value: string,
+  ) {
+    setAccountForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
+
+  function handleOpenCreateAccountForm() {
+    setAccountForm({
+      ...defaultAccountForm,
+      accountId: getNextAccountId(accounts),
+    });
+    setShowCreateAccountForm(true);
+  }
+
+  function handleCloseCreateAccountForm() {
+    setShowCreateAccountForm(false);
+  }
+
+  function handleTransactionFieldChange(
+    field: Exclude<keyof TransactionFormState, 'type'>,
+    value: string,
+  ) {
+    setTransactionForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
+
+  function handleTransactionTypeChange(nextType: TransactionRequestType) {
+    const selectedAccountValue = selectedAccount?.accountId ?? '';
+
+    setTransactionForm((current) => ({
+      ...current,
+      type: nextType,
+      fromAccountId:
+        nextType === 'DEPOSIT' ? '' : selectedAccountValue,
+      toAccountId:
+        nextType === 'DEPOSIT'
+          ? selectedAccountValue
+          : nextType === 'WITHDRAW'
+            ? ''
+            : current.toAccountId === selectedAccountValue
+              ? ''
+              : current.toAccountId,
+    }));
+  }
+
+  async function handleCreateAccount(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmittingAccount(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    try {
+      await requestJson<ApiResponse<Account>>('/accounts', {
+        method: 'POST',
+        body: JSON.stringify({
+          accountId: accountForm.accountId,
+          holderName: accountForm.holderName,
+          initialBalance: Number(accountForm.initialBalance || 0),
+        }),
+      });
+
+      setAccountForm(defaultAccountForm);
+      setShowCreateAccountForm(false);
+      setSuccessMessage('Account created successfully.');
+      void loadDashboardData();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : 'Unable to create account',
+      );
+    } finally {
+      setSubmittingAccount(false);
+    }
+  }
+
+  async function handleCreateTransaction(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmittingTransaction(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    const payload: Record<string, string | number> = {
+      type: transactionForm.type,
+      amount: Number(transactionForm.amount),
+    };
+
+    if (transactionForm.fromAccountId) {
+      payload.fromAccountId = transactionForm.fromAccountId;
+    }
+    if (transactionForm.toAccountId) {
+      payload.toAccountId = transactionForm.toAccountId;
+    }
+    if (transactionForm.description) {
+      payload.description = transactionForm.description;
+    }
+    try {
+      await requestJson<ApiResponse<Transaction>>('/transactions', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      setTransactionForm(defaultTransactionForm);
+      setSuccessMessage('Transaction submitted successfully.');
+      void loadDashboardData();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : 'Unable to create transaction',
+      );
+    } finally {
+      setSubmittingTransaction(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadDashboardData();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedAccountId && accounts.length > 0) {
+      setSelectedAccountId(accounts[0].accountId);
+    }
+  }, [accounts, selectedAccountId]);
+
+  useEffect(() => {
+    const selectedAccountValue = selectedAccount?.accountId ?? '';
+
+    setTransactionForm((current) => {
+      if (current.type === 'DEPOSIT') {
+        if (
+          current.fromAccountId === '' &&
+          current.toAccountId === selectedAccountValue
+        ) {
+          return current;
+        }
+
+        return {
+          ...current,
+          fromAccountId: '',
+          toAccountId: selectedAccountValue,
+        };
+      }
+
+      if (current.type === 'WITHDRAW') {
+        if (
+          current.fromAccountId === selectedAccountValue &&
+          current.toAccountId === ''
+        ) {
+          return current;
+        }
+
+        return {
+          ...current,
+          fromAccountId: selectedAccountValue,
+          toAccountId: '',
+        };
+      }
+
+      const nextToAccountId =
+        current.toAccountId === selectedAccountValue ? '' : current.toAccountId;
+
+      if (
+        current.fromAccountId === selectedAccountValue &&
+        current.toAccountId === nextToAccountId
+      ) {
+        return current;
+      }
+
+      return {
+        ...current,
+        fromAccountId: selectedAccountValue,
+        toAccountId: nextToAccountId,
+      };
+    });
+  }, [selectedAccount]);
+
+  useEffect(() => {
+    const socket: Socket = io(SOCKET_URL, {
+      transports: ['websocket'],
+    });
+
+    socket.on('transaction:created', () => {
+      void loadDashboardData();
+    });
+
+    socket.on(
+      'balance:updated',
+      (payload: { account: Account; transactionId: string }) => {
+        setAccounts((current) =>
+          current.map((account) =>
+            account.accountId === payload.account.accountId
+              ? payload.account
+              : account,
+          ),
+        );
+      },
+    );
+
+    socket.on('transaction:failed', () => {
+      void loadDashboardData();
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <main className="ds-shell">
+      <DashboardTopbar
+        accounts={accounts}
+        selectedAccount={selectedAccount}
+        onSelectAccount={setSelectedAccountId}
+      />
+
+      <DashboardStats
+        selectedAccount={selectedAccount}
+        selectedTransactionsCount={selectedTransactions.length}
+        selectedSuccessCount={selectedSuccessCount}
+      />
+
+      <DashboardFlashMessages
+        errorMessage={errorMessage}
+        successMessage={successMessage}
+      />
+
+      <section className="ds-main-grid">
+        <TransactionFormPanel
+          accounts={accounts}
+          needsFromAccount={needsFromAccount}
+          needsToAccount={needsToAccount}
+          selectedAccount={selectedAccount}
+          submittingTransaction={submittingTransaction}
+          transactionForm={transactionForm}
+          onFieldChange={handleTransactionFieldChange}
+          onSubmit={handleCreateTransaction}
+          onTransactionTypeChange={handleTransactionTypeChange}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+
+        <AccountsPanel
+          accountForm={accountForm}
+          accounts={accounts}
+          loading={loading}
+          selectedAccount={selectedAccount}
+          showCreateAccountForm={showCreateAccountForm}
+          submittingAccount={submittingAccount}
+          onAccountFieldChange={handleAccountFormChange}
+          onCloseCreateAccountForm={handleCloseCreateAccountForm}
+          onRefresh={() => void loadDashboardData()}
+          onSelectAccount={setSelectedAccountId}
+          onSubmit={handleCreateAccount}
+          onToggleCreateAccountForm={handleOpenCreateAccountForm}
+        />
+      </section>
+
+      <TransactionsPanel
+        loading={loading}
+        selectedAccount={selectedAccount}
+        transactions={selectedTransactions}
+      />
+    </main>
   );
 }
