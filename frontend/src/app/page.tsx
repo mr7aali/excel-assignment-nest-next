@@ -126,14 +126,14 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 export default function Home() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [events, setEvents] = useState<ActivityEvent[]>([]);
+  const [, setEvents] = useState<ActivityEvent[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState('');
   const [activeFormTab, setActiveFormTab] = useState<'account' | 'transaction'>(
     'account',
   );
-  const [activeSideTab, setActiveSideTab] = useState<'accounts' | 'events'>(
-    'accounts',
-  );
+  const [activeSideTab, setActiveSideTab] = useState<
+    'accounts' | 'create-account'
+  >('accounts');
   const [accountForm, setAccountForm] = useState(defaultAccountForm);
   const [transactionForm, setTransactionForm] = useState(
     defaultTransactionForm,
@@ -360,7 +360,9 @@ export default function Home() {
               onChange={(event) => setSelectedAccountId(event.target.value)}
               disabled={accounts.length === 0}
             >
-              {accounts.length === 0 ? <option value="">No accounts</option> : null}
+              {accounts.length === 0 ? (
+                <option value="">No accounts</option>
+              ) : null}
               {accounts.map((account) => (
                 <option key={account.id} value={account.accountId}>
                   {account.holderName} ({account.accountId})
@@ -600,7 +602,9 @@ export default function Home() {
                     className="ds-btn"
                     disabled={submittingTransaction}
                   >
-                    {submittingTransaction ? 'Submitting...' : 'Submit Transaction'}
+                    {submittingTransaction
+                      ? 'Submitting...'
+                      : 'Submit Transaction'}
                   </button>
                 </div>
               </form>
@@ -619,10 +623,12 @@ export default function Home() {
             </button>
             <button
               type="button"
-              className={`ds-tab ${activeSideTab === 'events' ? 'ds-tab--active' : ''}`}
-              onClick={() => setActiveSideTab('events')}
+              className={`ds-tab ${
+                activeSideTab === 'create-account' ? 'ds-tab--active' : ''
+              }`}
+              onClick={() => setActiveSideTab('create-account')}
             >
-              Live events
+              Create account
             </button>
             <button
               type="button"
@@ -633,10 +639,16 @@ export default function Home() {
             </button>
           </div>
 
-          <div className="ds-panel__body ds-panel__body--flush">
+          <div
+            className={`ds-panel__body ${
+              activeSideTab === 'accounts' ? 'ds-panel__body--flush' : ''
+            }`}
+          >
             {activeSideTab === 'accounts' ? (
               <div className="ds-list" role="list">
-                {loading ? <p className="ds-empty">Loading accounts...</p> : null}
+                {loading ? (
+                  <p className="ds-empty">Loading accounts...</p>
+                ) : null}
                 {!loading && accounts.length === 0 ? (
                   <p className="ds-empty">No accounts created yet.</p>
                 ) : null}
@@ -674,18 +686,60 @@ export default function Home() {
                 ))}
               </div>
             ) : (
-              <div className="ds-list" role="list">
-                {events.length === 0 ? (
-                  <p className="ds-empty">Socket events will appear here.</p>
-                ) : null}
-                {events.map((item) => (
-                  <article className="ds-event-item" key={item.id}>
-                    <strong>{item.title}</strong>
-                    <p>{item.subtitle}</p>
-                    <span>{formatDate(item.at)}</span>
-                  </article>
-                ))}
-              </div>
+              <form className="ds-form" onSubmit={handleCreateAccount}>
+                <label className="ds-form-row">
+                  <span>Account ID</span>
+                  <input
+                    value={accountForm.accountId}
+                    onChange={(event) =>
+                      setAccountForm((current) => ({
+                        ...current,
+                        accountId: event.target.value,
+                      }))
+                    }
+                    placeholder="ACC1001"
+                    required
+                  />
+                </label>
+                <label className="ds-form-row">
+                  <span>Holder Name</span>
+                  <input
+                    value={accountForm.holderName}
+                    onChange={(event) =>
+                      setAccountForm((current) => ({
+                        ...current,
+                        holderName: event.target.value,
+                      }))
+                    }
+                    placeholder="John Doe"
+                    required
+                  />
+                </label>
+                <label className="ds-form-row ds-form-row--single">
+                  <span>Initial Balance</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={accountForm.initialBalance}
+                    onChange={(event) =>
+                      setAccountForm((current) => ({
+                        ...current,
+                        initialBalance: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                <div className="ds-form-row ds-form-row--single">
+                  <button
+                    type="submit"
+                    className="ds-btn"
+                    disabled={submittingAccount}
+                  >
+                    {submittingAccount ? 'Creating...' : 'Create Account'}
+                  </button>
+                </div>
+              </form>
             )}
           </div>
         </article>
