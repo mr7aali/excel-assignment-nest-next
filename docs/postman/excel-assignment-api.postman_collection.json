@@ -1,0 +1,224 @@
+{
+  "info": {
+    "_postman_id": "7b291f62-1d8a-45af-8cfa-fd702b967e76",
+    "name": "Excel Assignment API",
+    "description": "Postman collection for the concurrent banking transaction backend documented in Swagger.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000/api"
+    }
+  ],
+  "item": [
+    {
+      "name": "Accounts",
+      "description": "Account management endpoints.",
+      "item": [
+        {
+          "name": "Create Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountId\": \"ACC1001\",\n  \"holderName\": \"John Doe\",\n  \"initialBalance\": 1000\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/accounts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "accounts"
+              ]
+            },
+            "description": "Create a new account."
+          },
+          "response": []
+        },
+        {
+          "name": "List Accounts",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/accounts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "accounts"
+              ]
+            },
+            "description": "Fetch all accounts."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Account By ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/accounts/ACC1001",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "accounts",
+                "ACC1001"
+              ]
+            },
+            "description": "Fetch one account by accountId."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Transactions",
+      "description": "Transaction processing endpoints.",
+      "item": [
+        {
+          "name": "Create Deposit",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"DEPOSIT\",\n  \"amount\": 500,\n  \"toAccountId\": \"ACC1001\",\n  \"description\": \"Cash deposit\",\n  \"idempotencyKey\": \"deposit-acc1001-001\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/transactions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "transactions"
+              ]
+            },
+            "description": "Create a deposit transaction."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Withdraw",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"WITHDRAW\",\n  \"amount\": 200,\n  \"fromAccountId\": \"ACC1001\",\n  \"description\": \"ATM cash out\",\n  \"idempotencyKey\": \"withdraw-acc1001-001\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/transactions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "transactions"
+              ]
+            },
+            "description": "Create a withdraw transaction."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Transfer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"TRANSFER\",\n  \"amount\": 250,\n  \"fromAccountId\": \"ACC1001\",\n  \"toAccountId\": \"ACC1002\",\n  \"description\": \"Vendor payment\",\n  \"idempotencyKey\": \"transfer-acc1001-acc1002-001\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/transactions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "transactions"
+              ]
+            },
+            "description": "Create a transfer transaction."
+          },
+          "response": []
+        },
+        {
+          "name": "List Transactions",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/transactions?accountId=ACC1001&type=TRANSFER&status=SUCCESS&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "transactions"
+              ],
+              "query": [
+                {
+                  "key": "accountId",
+                  "value": "ACC1001"
+                },
+                {
+                  "key": "type",
+                  "value": "TRANSFER"
+                },
+                {
+                  "key": "status",
+                  "value": "SUCCESS"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "List transactions with optional filters."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Transaction By txId",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/transactions/cm9x4m4yx0007t6xyuimvla8c",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "transactions",
+                "cm9x4m4yx0007t6xyuimvla8c"
+              ]
+            },
+            "description": "Fetch one transaction by txId."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

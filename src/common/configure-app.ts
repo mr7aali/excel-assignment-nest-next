@@ -1,3 +1,5 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { GlobalExceptionFilter } from './filters/global-exception.filter';
@@ -19,12 +21,23 @@ export function configureApp(app: INestApplication): INestApplication {
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Excel Assignment API')
-    .setDescription('API documentation for the Excel Assignment service')
+    .setDescription(
+      'Swagger documentation for the concurrent banking transaction backend.',
+    )
     .setVersion('1.0')
     .addServer(`/${globalPrefix}`)
+    .addTag('Accounts', 'Account creation and retrieval APIs')
+    .addTag('Transactions', 'Concurrent-safe deposit, withdraw, and transfer APIs')
     .build();
 
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
+  const docsDir = join(process.cwd(), 'docs');
+  mkdirSync(docsDir, { recursive: true });
+  writeFileSync(
+    join(docsDir, 'swagger.json'),
+    JSON.stringify(swaggerDocument, null, 2),
+    'utf8',
+  );
   SwaggerModule.setup(`${globalPrefix}/docs`, app, swaggerDocument);
 
   return app;
