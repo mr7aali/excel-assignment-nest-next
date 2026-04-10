@@ -128,12 +128,7 @@ export default function Home() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [, setEvents] = useState<ActivityEvent[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState('');
-  const [activeFormTab, setActiveFormTab] = useState<'account' | 'transaction'>(
-    'account',
-  );
-  const [activeSideTab, setActiveSideTab] = useState<
-    'accounts' | 'create-account'
-  >('accounts');
+  const [showCreateAccountForm, setShowCreateAccountForm] = useState(false);
   const [accountForm, setAccountForm] = useState(defaultAccountForm);
   const [transactionForm, setTransactionForm] = useState(
     defaultTransactionForm,
@@ -426,210 +421,125 @@ export default function Home() {
       <section className="ds-main-grid">
         <article className="ds-panel">
           <div className="ds-tabs">
-            <button
-              type="button"
-              className={`ds-tab ${activeFormTab === 'account' ? 'ds-tab--active' : ''}`}
-              onClick={() => setActiveFormTab('account')}
-            >
-              Create account
-            </button>
-            <button
-              type="button"
-              className={`ds-tab ${activeFormTab === 'transaction' ? 'ds-tab--active' : ''}`}
-              onClick={() => setActiveFormTab('transaction')}
-            >
-              New transaction
-            </button>
+            <span className="ds-tab ds-tab--active">New transaction</span>
           </div>
 
           <div className="ds-panel__body">
-            {activeFormTab === 'account' ? (
-              <form className="ds-form" onSubmit={handleCreateAccount}>
+            <form className="ds-form" onSubmit={handleCreateTransaction}>
+              <div className="ds-form-row ds-form-row--single">
+                <span>Transaction Type</span>
+                <div className="ds-transaction-tabs">
+                  {transactionTypeOptions.map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      className={`ds-tab ds-transaction-tab ${
+                        transactionForm.type === type ? 'ds-tab--active' : ''
+                      }`}
+                      onClick={() => handleTransactionTypeChange(type)}
+                    >
+                      {type === 'DEPOSIT'
+                        ? 'Deposit'
+                        : type === 'WITHDRAW'
+                          ? 'Withdraw'
+                          : 'Transfer'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <label className="ds-form-row">
+                <span>Amount</span>
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={transactionForm.amount}
+                  onChange={(event) =>
+                    setTransactionForm((current) => ({
+                      ...current,
+                      amount: event.target.value,
+                    }))
+                  }
+                  placeholder="250"
+                  required
+                />
+              </label>
+              {needsFromAccount ? (
                 <label className="ds-form-row">
-                  <span>Account ID</span>
+                  <span>From Account</span>
                   <input
-                    value={accountForm.accountId}
+                    value={transactionForm.fromAccountId}
                     onChange={(event) =>
-                      setAccountForm((current) => ({
+                      setTransactionForm((current) => ({
                         ...current,
-                        accountId: event.target.value,
+                        fromAccountId: event.target.value,
                       }))
                     }
                     placeholder="ACC1001"
-                    required
+                    required={needsFromAccount}
                   />
                 </label>
+              ) : null}
+              {needsToAccount ? (
                 <label className="ds-form-row">
-                  <span>Holder Name</span>
+                  <span>To Account</span>
                   <input
-                    value={accountForm.holderName}
-                    onChange={(event) =>
-                      setAccountForm((current) => ({
-                        ...current,
-                        holderName: event.target.value,
-                      }))
-                    }
-                    placeholder="John Doe"
-                    required
-                  />
-                </label>
-                <label className="ds-form-row ds-form-row--single">
-                  <span>Initial Balance</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={accountForm.initialBalance}
-                    onChange={(event) =>
-                      setAccountForm((current) => ({
-                        ...current,
-                        initialBalance: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <div className="ds-form-row ds-form-row--single">
-                  <button
-                    type="submit"
-                    className="ds-btn"
-                    disabled={submittingAccount}
-                  >
-                    {submittingAccount ? 'Creating...' : 'Create Account'}
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <form className="ds-form" onSubmit={handleCreateTransaction}>
-                <div className="ds-form-row ds-form-row--single">
-                  <span>Transaction Type</span>
-                  <div className="ds-transaction-tabs">
-                    {transactionTypeOptions.map((type) => (
-                      <button
-                        key={type}
-                        type="button"
-                        className={`ds-tab ds-transaction-tab ${
-                          transactionForm.type === type ? 'ds-tab--active' : ''
-                        }`}
-                        onClick={() => handleTransactionTypeChange(type)}
-                      >
-                        {type === 'DEPOSIT'
-                          ? 'Deposit'
-                          : type === 'WITHDRAW'
-                            ? 'Withdraw'
-                            : 'Transfer'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <label className="ds-form-row">
-                  <span>Amount</span>
-                  <input
-                    type="number"
-                    min="0.01"
-                    step="0.01"
-                    value={transactionForm.amount}
+                    value={transactionForm.toAccountId}
                     onChange={(event) =>
                       setTransactionForm((current) => ({
                         ...current,
-                        amount: event.target.value,
+                        toAccountId: event.target.value,
                       }))
                     }
-                    placeholder="250"
-                    required
+                    placeholder="ACC1002"
+                    required={needsToAccount}
                   />
                 </label>
-                {needsFromAccount ? (
-                  <label className="ds-form-row">
-                    <span>From Account</span>
-                    <input
-                      value={transactionForm.fromAccountId}
-                      onChange={(event) =>
-                        setTransactionForm((current) => ({
-                          ...current,
-                          fromAccountId: event.target.value,
-                        }))
-                      }
-                      placeholder="ACC1001"
-                      required={needsFromAccount}
-                    />
-                  </label>
-                ) : null}
-                {needsToAccount ? (
-                  <label className="ds-form-row">
-                    <span>To Account</span>
-                    <input
-                      value={transactionForm.toAccountId}
-                      onChange={(event) =>
-                        setTransactionForm((current) => ({
-                          ...current,
-                          toAccountId: event.target.value,
-                        }))
-                      }
-                      placeholder="ACC1002"
-                      required={needsToAccount}
-                    />
-                  </label>
-                ) : null}
-                <label className="ds-form-row ds-form-row--single">
-                  <span>Description</span>
-                  <input
-                    value={transactionForm.description}
-                    onChange={(event) =>
-                      setTransactionForm((current) => ({
-                        ...current,
-                        description: event.target.value,
-                      }))
-                    }
-                    placeholder="Optional note"
-                  />
-                </label>
-                <label className="ds-form-row ds-form-row--single">
-                  <span>Idempotency Key</span>
-                  <input
-                    value={transactionForm.idempotencyKey}
-                    onChange={(event) =>
-                      setTransactionForm((current) => ({
-                        ...current,
-                        idempotencyKey: event.target.value,
-                      }))
-                    }
-                    placeholder="transfer-001"
-                  />
-                </label>
-                <div className="ds-form-row ds-form-row--single">
-                  <button
-                    type="submit"
-                    className="ds-btn"
-                    disabled={submittingTransaction}
-                  >
-                    {submittingTransaction
-                      ? 'Submitting...'
-                      : 'Submit Transaction'}
-                  </button>
-                </div>
-              </form>
-            )}
+              ) : null}
+              <label className="ds-form-row ds-form-row--single">
+                <span>Description</span>
+                <input
+                  value={transactionForm.description}
+                  onChange={(event) =>
+                    setTransactionForm((current) => ({
+                      ...current,
+                      description: event.target.value,
+                    }))
+                  }
+                  placeholder="Optional note"
+                />
+              </label>
+              <label className="ds-form-row ds-form-row--single">
+                <span>Idempotency Key</span>
+                <input
+                  value={transactionForm.idempotencyKey}
+                  onChange={(event) =>
+                    setTransactionForm((current) => ({
+                      ...current,
+                      idempotencyKey: event.target.value,
+                    }))
+                  }
+                  placeholder="transfer-001"
+                />
+              </label>
+              <div className="ds-form-row ds-form-row--single">
+                <button
+                  type="submit"
+                  className="ds-btn"
+                  disabled={submittingTransaction}
+                >
+                  {submittingTransaction
+                    ? 'Submitting...'
+                    : 'Submit Transaction'}
+                </button>
+              </div>
+            </form>
           </div>
         </article>
 
-        <article className="ds-panel">
+        <article className="ds-panel" style={{ border: '1px solid red' }}>
           <div className="ds-tabs">
-            <button
-              type="button"
-              className={`ds-tab ${activeSideTab === 'accounts' ? 'ds-tab--active' : ''}`}
-              onClick={() => setActiveSideTab('accounts')}
-            >
-              Accounts
-            </button>
-            <button
-              type="button"
-              className={`ds-tab ${
-                activeSideTab === 'create-account' ? 'ds-tab--active' : ''
-              }`}
-              onClick={() => setActiveSideTab('create-account')}
-            >
-              Create account
-            </button>
+            <span className="ds-tab ds-tab--active">Accounts</span>
             <button
               type="button"
               className="ds-tab ds-tab--ghost"
@@ -639,108 +549,111 @@ export default function Home() {
             </button>
           </div>
 
-          <div
-            className={`ds-panel__body ${
-              activeSideTab === 'accounts' ? 'ds-panel__body--flush' : ''
-            }`}
-          >
-            {activeSideTab === 'accounts' ? (
-              <div className="ds-list" role="list">
-                {loading ? (
-                  <p className="ds-empty">Loading accounts...</p>
-                ) : null}
-                {!loading && accounts.length === 0 ? (
-                  <p className="ds-empty">No accounts created yet.</p>
-                ) : null}
-                {accounts.map((account) => (
-                  <button
-                    type="button"
-                    className={`ds-account-item ${
-                      selectedAccount?.accountId === account.accountId
-                        ? 'ds-account-item--active'
-                        : ''
-                    }`}
-                    key={account.id}
-                    onClick={() => setSelectedAccountId(account.accountId)}
-                  >
-                    <div className="ds-account-item__top">
-                      <div>
-                        <strong>{account.holderName}</strong>
-                        <p>{account.accountId}</p>
-                      </div>
-                      <span className="ds-capsule">
-                        {formatCurrency(account.balance)}
-                      </span>
+          <div className="ds-panel__body ds-panel__body--flush">
+            <div className="ds-list" role="list">
+              {loading ? <p className="ds-empty">Loading accounts...</p> : null}
+              {!loading && accounts.length === 0 ? (
+                <p className="ds-empty">No accounts created yet.</p>
+              ) : null}
+              {accounts.map((account) => (
+                <button
+                  type="button"
+                  className={`ds-account-item ${
+                    selectedAccount?.accountId === account.accountId
+                      ? 'ds-account-item--active'
+                      : ''
+                  }`}
+                  key={account.id}
+                  onClick={() => setSelectedAccountId(account.accountId)}
+                >
+                  <div className="ds-account-item__top">
+                    <div>
+                      <strong>{account.holderName}</strong>
+                      <p>{account.accountId}</p>
                     </div>
-                    <div className="ds-account-item__bottom">
-                      <span>Version {account.version}</span>
-                      <span
-                        className={`ds-badge ${
-                          account.isActive ? 'ds-badge--active' : ''
-                        }`}
-                      >
-                        {account.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <form className="ds-form" onSubmit={handleCreateAccount}>
-                <label className="ds-form-row">
-                  <span>Account ID</span>
-                  <input
-                    value={accountForm.accountId}
-                    onChange={(event) =>
-                      setAccountForm((current) => ({
-                        ...current,
-                        accountId: event.target.value,
-                      }))
-                    }
-                    placeholder="ACC1001"
-                    required
-                  />
-                </label>
-                <label className="ds-form-row">
-                  <span>Holder Name</span>
-                  <input
-                    value={accountForm.holderName}
-                    onChange={(event) =>
-                      setAccountForm((current) => ({
-                        ...current,
-                        holderName: event.target.value,
-                      }))
-                    }
-                    placeholder="John Doe"
-                    required
-                  />
-                </label>
-                <label className="ds-form-row ds-form-row--single">
-                  <span>Initial Balance</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={accountForm.initialBalance}
-                    onChange={(event) =>
-                      setAccountForm((current) => ({
-                        ...current,
-                        initialBalance: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <div className="ds-form-row ds-form-row--single">
-                  <button
-                    type="submit"
-                    className="ds-btn"
-                    disabled={submittingAccount}
-                  >
-                    {submittingAccount ? 'Creating...' : 'Create Account'}
-                  </button>
-                </div>
-              </form>
-            )}
+                    <span className="ds-capsule">
+                      {formatCurrency(account.balance)}
+                    </span>
+                  </div>
+                  <div className="ds-account-item__bottom">
+                    <span>Version {account.version}</span>
+                    <span
+                      className={`ds-badge ${
+                        account.isActive ? 'ds-badge--active' : ''
+                      }`}
+                    >
+                      {account.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <div className="ds-inline-create-account">
+              <button
+                type="button"
+                className="ds-btn ds-btn--secondary"
+                onClick={() => setShowCreateAccountForm((current) => !current)}
+              >
+                Crate new account
+              </button>
+
+              {showCreateAccountForm ? (
+                <form className="ds-form" onSubmit={handleCreateAccount}>
+                  <label className="ds-form-row">
+                    <span>Account ID</span>
+                    <input
+                      value={accountForm.accountId}
+                      onChange={(event) =>
+                        setAccountForm((current) => ({
+                          ...current,
+                          accountId: event.target.value,
+                        }))
+                      }
+                      placeholder="ACC1001"
+                      required
+                    />
+                  </label>
+                  <label className="ds-form-row">
+                    <span>Holder Name</span>
+                    <input
+                      value={accountForm.holderName}
+                      onChange={(event) =>
+                        setAccountForm((current) => ({
+                          ...current,
+                          holderName: event.target.value,
+                        }))
+                      }
+                      placeholder="John Doe"
+                      required
+                    />
+                  </label>
+                  <label className="ds-form-row ds-form-row--single">
+                    <span>Initial Balance</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={accountForm.initialBalance}
+                      onChange={(event) =>
+                        setAccountForm((current) => ({
+                          ...current,
+                          initialBalance: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                  <div className="ds-form-row ds-form-row--single">
+                    <button
+                      type="submit"
+                      className="ds-btn"
+                      disabled={submittingAccount}
+                    >
+                      {submittingAccount ? 'Creating...' : 'Create Account'}
+                    </button>
+                  </div>
+                </form>
+              ) : null}
+            </div>
           </div>
         </article>
       </section>
@@ -794,6 +707,7 @@ export default function Home() {
           ))}
         </div>
       </section>
+
     </main>
   );
 }

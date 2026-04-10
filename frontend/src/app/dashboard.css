@@ -212,6 +212,9 @@
 }
 
 .ds-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0 0.8rem;
   background: transparent;
   color: var(--color-text-secondary);
@@ -260,6 +263,8 @@
 }
 
 .ds-btn {
+  display: inline-flex;
+  align-items: center;
   width: 100%;
   justify-content: center;
   padding: 0 0.95rem;
@@ -267,6 +272,13 @@
   border-color: var(--color-text-primary);
   color: var(--color-background-secondary);
   font-weight: 700;
+}
+
+.ds-btn--secondary {
+  width: auto;
+  background: var(--color-background-secondary);
+  border-color: var(--color-border-secondary);
+  color: var(--color-text-primary);
 }
 
 .ds-btn:disabled {
@@ -429,6 +441,18 @@
 
 .ds-table-row:last-child {
   border-bottom: 0;
+}
+
+.ds-inline-create-account {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem 1rem;
+  border-top: 1px solid var(--color-border-tertiary);
+  background: color-mix(
+    in srgb,
+    var(--color-background-primary) 35%,
+    var(--color-background-secondary)
+  );
 }
 
 @media (max-width: 767px) {
