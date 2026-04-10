@@ -5,7 +5,7 @@ exports.default = Home;
 const react_1 = require('react');
 const socket_io_client_1 = require('socket.io-client');
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3000/api';
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000/api';
 const SOCKET_URL =
   process.env.NEXT_PUBLIC_SOCKET_URL ?? API_BASE_URL.replace(/\/api\/?$/, '');
 const defaultAccountForm = {
@@ -239,14 +239,14 @@ function Home() {
         </div>
         <div className="hero-actions">
           <a
-            href="http://localhost:3000/api/docs"
+            href="http://localhost:8000/api/docs"
             target="_blank"
             rel="noreferrer"
           >
             Open Swagger
           </a>
           <a
-            href="http://localhost:3000/api/transactions?limit=10"
+            href="http://localhost:8000/api/transactions?limit=10"
             target="_blank"
             rel="noreferrer"
           >

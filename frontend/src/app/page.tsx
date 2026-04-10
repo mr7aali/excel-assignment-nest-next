@@ -52,7 +52,7 @@ type ActivityEvent = {
 };
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3000/api';
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000/api';
 const SOCKET_URL =
   process.env.NEXT_PUBLIC_SOCKET_URL ?? API_BASE_URL.replace(/\/api\/?$/, '');
 
@@ -98,7 +98,8 @@ function toActivityEvent(
 }
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const url = `${API_BASE_URL}${path}`;
+  const response = await fetch(url, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
@@ -107,7 +108,28 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
     cache: 'no-store',
   });
 
-  const payload = (await response.json()) as T | ApiError;
+  const contentType = response.headers.get('content-type') ?? '';
+  const rawBody = await response.text();
+
+  if (!contentType.includes('application/json')) {
+    const preview = rawBody.slice(0, 120).trim();
+    throw new Error(
+      `Expected JSON from ${url}, but received ${contentType || 'an unknown content type'}. ` +
+        `This usually means the API URL is wrong or the backend is not running. ` +
+        `Response preview: ${preview || '[empty response]'}`,
+    );
+  }
+
+  let payload: T | ApiError;
+
+  try {
+    payload = JSON.parse(rawBody) as T | ApiError;
+  } catch {
+    throw new Error(
+      `Received an invalid JSON response from ${url}. ` +
+        `Please verify the backend is running and returning API data.`,
+    );
+  }
 
   if (!response.ok) {
     const errorPayload = payload as ApiError;
@@ -307,7 +329,7 @@ export default function Home() {
 
   return (
     <main className="dashboard-shell">
-      <section className="stats-grid">
+      <section className="stats-grid" style={{ border: '1px solid red' }}>
         <article className="stat-card">
           <span>Total Accounts</span>
           <strong>{accounts.length}</strong>
