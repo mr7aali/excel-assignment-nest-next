@@ -8,7 +8,7 @@ import { Server } from 'socket.io';
 })
 export class RealtimeGateway {
   @WebSocketServer()
-  server: Server;
+  server!: Server;
 
   emitTransactionCreated(payload: any) {
     this.server.emit('transaction:created', payload);
