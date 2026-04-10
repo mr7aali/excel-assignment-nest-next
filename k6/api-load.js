@@ -16,8 +16,10 @@ import {
 const profile = __ENV.PROFILE || 'load';
 const baseUrl = (__ENV.BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
 const apiPrefix = (__ENV.API_PREFIX || '/api').replace(/\/$/, '');
-const seedAccounts = Number(__ENV.SEED_ACCOUNTS || 24);
 const openingBalance = Number(__ENV.OPENING_BALANCE || 25000);
+const seedAccounts = Number(
+  __ENV.SEED_ACCOUNTS || defaultSeedAccountsForProfile(profile),
+);
 
 export const options = buildOptions(profile);
 
@@ -27,9 +29,42 @@ const transactionDuration = new Trend('transaction_duration', true);
 const readDuration = new Trend('read_duration', true);
 const transactionConflictRate = new Rate('transaction_conflict_rate');
 const transactionCreatedCounter = new Counter('transactions_created');
+const unexpectedTransactionStatusCounter = new Counter(
+  'unexpected_transaction_status',
+);
+const unexpectedReadStatusCounter = new Counter('unexpected_read_status');
 
 function apiUrl(path) {
   return buildUrl(baseUrl, `${apiPrefix}${path}`);
+}
+
+function defaultSeedAccountsForProfile(currentProfile) {
+  switch (currentProfile) {
+    case 'stress':
+      return 200;
+    case 'load':
+      return 64;
+    default:
+      return 24;
+  }
+}
+
+function pickRandomAccount(accounts) {
+  return pickAccount(accounts, randomInt(0, accounts.length - 1));
+}
+
+function pickDistinctAccounts(accounts) {
+  const fromIndex = randomInt(0, accounts.length - 1);
+  let toIndex = randomInt(0, accounts.length - 1);
+
+  while (toIndex === fromIndex) {
+    toIndex = randomInt(0, accounts.length - 1);
+  }
+
+  return {
+    fromAccountId: pickAccount(accounts, fromIndex),
+    toAccountId: pickAccount(accounts, toIndex),
+  };
 }
 
 function createAccountPayload(runId, index) {
@@ -77,6 +112,16 @@ export function listAccountsScenario() {
 
     readDuration.add(response.timings.duration);
 
+    if (response.status !== 200) {
+      unexpectedReadStatusCounter.add(1, {
+        endpoint: 'GET /accounts',
+        status: String(response.status),
+      });
+      console.error(
+        `[k6] unexpected read response GET /accounts -> ${response.status}: ${response.body}`,
+      );
+    }
+
     check(response, {
       'accounts list status is 200': (res) => res.status === 200,
       'accounts list is wrapped': (res) => Array.isArray(unwrapData(res)),
@@ -87,7 +132,7 @@ export function listAccountsScenario() {
 }
 
 export function listTransactionsScenario(data) {
-  const accountId = pickAccount(data.accounts, __ITER + __VU);
+  const accountId = pickRandomAccount(data.accounts);
 
   group('list transactions', () => {
     const response = http.get(
@@ -99,6 +144,16 @@ export function listTransactionsScenario(data) {
 
     readDuration.add(response.timings.duration);
 
+    if (response.status !== 200) {
+      unexpectedReadStatusCounter.add(1, {
+        endpoint: 'GET /transactions',
+        status: String(response.status),
+      });
+      console.error(
+        `[k6] unexpected read response GET /transactions -> ${response.status}: ${response.body}`,
+      );
+    }
+
     check(response, {
       'transactions list status is 200': (res) => res.status === 200,
       'transactions list is wrapped': (res) => Array.isArray(unwrapData(res)),
@@ -109,21 +164,20 @@ export function listTransactionsScenario(data) {
 }
 
 function createTransferPayload(data) {
-  const fromIndex = (__ITER + __VU) % data.accounts.length;
-  const toIndex = (fromIndex + 1) % data.accounts.length;
+  const { fromAccountId, toAccountId } = pickDistinctAccounts(data.accounts);
 
   return {
     type: 'TRANSFER',
     amount: randomInt(5, 40),
-    fromAccountId: pickAccount(data.accounts, fromIndex),
-    toAccountId: pickAccount(data.accounts, toIndex),
+    fromAccountId,
+    toAccountId,
     description: `k6 transfer ${profile}`,
     idempotencyKey: uniqueIdempotencyKey('transfer'),
   };
 }
 
 function createDepositPayload(data) {
-  const accountId = pickAccount(data.accounts, __ITER + __VU);
+  const accountId = pickRandomAccount(data.accounts);
 
   return {
     type: 'DEPOSIT',
@@ -151,6 +205,16 @@ function postTransaction(payload) {
     transactionCreatedCounter.add(1, { tx_type: payload.type });
   }
 
+  if (response.status !== 201 && response.status !== 409) {
+    unexpectedTransactionStatusCounter.add(1, {
+      tx_type: payload.type,
+      status: String(response.status),
+    });
+    console.error(
+      `[k6] unexpected transaction response ${payload.type} -> ${response.status}: ${response.body}`,
+    );
+  }
+
   check(response, {
     'transaction request accepted': (res) =>
       res.status === 201 || res.status === 409,
@@ -176,5 +240,22 @@ export function createDepositScenario(data) {
 }
 
 export function handleSummary(data) {
+  const transactionStatusMetrics = Object.entries(data.metrics)
+    .filter(([name]) => name.startsWith('unexpected_transaction_status{'))
+    .map(([name, metric]) => `${name}: ${metric.values.count}`);
+  const readStatusMetrics = Object.entries(data.metrics)
+    .filter(([name]) => name.startsWith('unexpected_read_status{'))
+    .map(([name, metric]) => `${name}: ${metric.values.count}`);
+
+  if (transactionStatusMetrics.length > 0 || readStatusMetrics.length > 0) {
+    console.log('unexpected response summary');
+    for (const line of transactionStatusMetrics) {
+      console.log(line);
+    }
+    for (const line of readStatusMetrics) {
+      console.log(line);
+    }
+  }
+
   return summarize(data);
 }

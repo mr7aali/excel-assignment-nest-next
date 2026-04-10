@@ -472,12 +472,53 @@ export class TransactionsService {
   }
 
   private isRetryableTransactionError(error: unknown) {
+    return this.hasRetryableTransactionSignal(error);
+  }
+
+  private hasRetryableTransactionSignal(error: unknown): boolean {
+    if (!error) {
+      return false;
+    }
+
     if (error instanceof RetryableConcurrencyError) {
       return true;
     }
 
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       return error.code === 'P2034';
+    }
+
+    if (typeof error === 'object') {
+      const record = error as {
+        code?: string;
+        kind?: string;
+        name?: string;
+        message?: string;
+        cause?: unknown;
+        originalError?: unknown;
+      };
+      const normalizedMessage = record.message?.toLowerCase();
+
+      if (
+        record.code === 'P2034' ||
+        record.code === '40001' ||
+        record.code === '40P01' ||
+        record.kind === 'TransactionWriteConflict' ||
+        record.name === 'TransactionWriteConflict' ||
+        record.message === 'TransactionWriteConflict' ||
+        normalizedMessage?.includes('could not serialize access') ||
+        normalizedMessage?.includes('transactionwriteconflict') ||
+        normalizedMessage?.includes('write conflict or a deadlock') ||
+        normalizedMessage?.includes('please retry your transaction') ||
+        normalizedMessage?.includes('deadlock detected')
+      ) {
+        return true;
+      }
+
+      return (
+        this.hasRetryableTransactionSignal(record.cause) ||
+        this.hasRetryableTransactionSignal(record.originalError)
+      );
     }
 
     return false;
