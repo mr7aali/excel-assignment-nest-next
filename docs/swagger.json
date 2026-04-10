@@ -1,0 +1,737 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/accounts": {
+      "post": {
+        "operationId": "AccountsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAccountDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Account ID already exists.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create a new bank account",
+        "tags": [
+          "Accounts"
+        ]
+      },
+      "get": {
+        "operationId": "AccountsController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List all accounts",
+        "tags": [
+          "Accounts"
+        ]
+      }
+    },
+    "/api/accounts/{accountId}": {
+      "get": {
+        "operationId": "AccountsController_findOne",
+        "parameters": [
+          {
+            "name": "accountId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "ACC1001",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Account not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get one account by accountId",
+        "tags": [
+          "Accounts"
+        ]
+      }
+    },
+    "/api/transactions": {
+      "post": {
+        "operationId": "TransactionsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTransactionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransactionResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed or transaction rule violation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Referenced account was not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "High concurrency prevented the transaction from completing.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create a deposit, withdraw, or transfer transaction",
+        "tags": [
+          "Transactions"
+        ]
+      },
+      "get": {
+        "operationId": "TransactionsController_findAll",
+        "parameters": [
+          {
+            "name": "accountId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by transactions that involve this account.",
+            "schema": {
+              "example": "ACC1001",
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "DEPOSIT",
+                "WITHDRAW",
+                "TRANSFER"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "PENDING",
+                "SUCCESS",
+                "FAILED"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50,
+              "example": 50,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransactionListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List transactions with optional filters",
+        "tags": [
+          "Transactions"
+        ]
+      }
+    },
+    "/api/transactions/{txId}": {
+      "get": {
+        "operationId": "TransactionsController_findOne",
+        "parameters": [
+          {
+            "name": "txId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "cm9x4m4yx0007t6xyuimvla8c",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransactionResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Transaction not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get one transaction by txId",
+        "tags": [
+          "Transactions"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Excel Assignment API",
+    "description": "Swagger documentation for the concurrent banking transaction backend.",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "Accounts",
+      "description": "Account creation and retrieval APIs"
+    },
+    {
+      "name": "Transactions",
+      "description": "Concurrent-safe deposit, withdraw, and transfer APIs"
+    }
+  ],
+  "servers": [
+    {
+      "url": "/api"
+    }
+  ],
+  "components": {
+    "schemas": {
+      "CreateAccountDto": {
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "string",
+            "example": "ACC1001",
+            "description": "Unique account identifier used across the system."
+          },
+          "holderName": {
+            "type": "string",
+            "example": "John Doe",
+            "description": "Human-readable account holder name."
+          },
+          "initialBalance": {
+            "type": "number",
+            "example": 1000,
+            "default": 0,
+            "description": "Opening balance for the account."
+          }
+        },
+        "required": [
+          "accountId",
+          "holderName"
+        ]
+      },
+      "AccountResourceDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "cm9x4f4r20000t6xyd4x9mk3w"
+          },
+          "accountId": {
+            "type": "string",
+            "example": "ACC1001"
+          },
+          "holderName": {
+            "type": "string",
+            "example": "John Doe"
+          },
+          "balance": {
+            "type": "number",
+            "example": 1000
+          },
+          "version": {
+            "type": "number",
+            "example": 1
+          },
+          "isActive": {
+            "type": "boolean",
+            "example": true
+          },
+          "createdAt": {
+            "type": "object",
+            "example": "2026-04-10T10:30:00.000Z"
+          },
+          "updatedAt": {
+            "type": "object",
+            "example": "2026-04-10T10:30:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "accountId",
+          "holderName",
+          "balance",
+          "version",
+          "isActive",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "AccountResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "statusCode": {
+            "type": "number",
+            "example": 201
+          },
+          "message": {
+            "type": "string",
+            "example": "Request successful"
+          },
+          "timestamp": {
+            "type": "string",
+            "example": "2026-04-10T10:30:00.000Z"
+          },
+          "path": {
+            "type": "string",
+            "example": "/api/accounts"
+          },
+          "data": {
+            "$ref": "#/components/schemas/AccountResourceDto"
+          }
+        },
+        "required": [
+          "success",
+          "statusCode",
+          "message",
+          "timestamp",
+          "path",
+          "data"
+        ]
+      },
+      "ErrorResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "statusCode": {
+            "type": "number",
+            "example": 400
+          },
+          "message": {
+            "type": "string",
+            "example": "Validation failed"
+          },
+          "timestamp": {
+            "type": "string",
+            "example": "2026-04-10T10:30:00.000Z"
+          },
+          "path": {
+            "type": "string",
+            "example": "/api/transactions"
+          },
+          "error": {
+            "type": "object",
+            "example": [
+              "amount must not be less than 0.01"
+            ],
+            "description": "Additional error details."
+          }
+        },
+        "required": [
+          "success",
+          "statusCode",
+          "message",
+          "timestamp",
+          "path"
+        ]
+      },
+      "AccountListResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "statusCode": {
+            "type": "number",
+            "example": 200
+          },
+          "message": {
+            "type": "string",
+            "example": "Request successful"
+          },
+          "timestamp": {
+            "type": "string",
+            "example": "2026-04-10T10:30:00.000Z"
+          },
+          "path": {
+            "type": "string",
+            "example": "/api/accounts"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AccountResourceDto"
+            }
+          }
+        },
+        "required": [
+          "success",
+          "statusCode",
+          "message",
+          "timestamp",
+          "path",
+          "data"
+        ]
+      },
+      "CreateTransactionDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "DEPOSIT",
+              "WITHDRAW",
+              "TRANSFER"
+            ],
+            "example": "TRANSFER",
+            "description": "Transaction type to execute."
+          },
+          "amount": {
+            "type": "number",
+            "example": 250,
+            "description": "Transaction amount. Must be greater than 0."
+          },
+          "fromAccountId": {
+            "type": "string",
+            "example": "ACC1001",
+            "description": "Required for withdraw and transfer."
+          },
+          "toAccountId": {
+            "type": "string",
+            "example": "ACC1002",
+            "description": "Required for deposit and transfer."
+          },
+          "description": {
+            "type": "string",
+            "example": "Invoice settlement"
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "example": "transfer-acc1001-acc1002-001",
+            "description": "Optional unique key to safely retry the same request."
+          }
+        },
+        "required": [
+          "type",
+          "amount"
+        ]
+      },
+      "TransactionResourceDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "cm9x4m4yx0006t6xy9r5pcx9u"
+          },
+          "txId": {
+            "type": "string",
+            "example": "cm9x4m4yx0007t6xyuimvla8c"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "deposit",
+              "withdraw",
+              "transfer"
+            ],
+            "example": "transfer"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "success",
+              "failed"
+            ],
+            "example": "success"
+          },
+          "amount": {
+            "type": "number",
+            "example": 250
+          },
+          "description": {
+            "type": "object",
+            "example": "Salary payout"
+          },
+          "idempotencyKey": {
+            "type": "object",
+            "example": "transfer-acc1001-acc1002-1"
+          },
+          "failureReason": {
+            "type": "object",
+            "example": null,
+            "nullable": true
+          },
+          "fromVersionBefore": {
+            "type": "object",
+            "example": 4,
+            "nullable": true
+          },
+          "fromVersionAfter": {
+            "type": "object",
+            "example": 5,
+            "nullable": true
+          },
+          "toVersionBefore": {
+            "type": "object",
+            "example": 2,
+            "nullable": true
+          },
+          "toVersionAfter": {
+            "type": "object",
+            "example": 3,
+            "nullable": true
+          },
+          "fromBalanceBefore": {
+            "type": "object",
+            "example": 750,
+            "nullable": true
+          },
+          "fromBalanceAfter": {
+            "type": "object",
+            "example": 500,
+            "nullable": true
+          },
+          "toBalanceBefore": {
+            "type": "object",
+            "example": 1000,
+            "nullable": true
+          },
+          "toBalanceAfter": {
+            "type": "object",
+            "example": 1250,
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "object",
+            "example": "2026-04-10T10:30:00.000Z"
+          },
+          "updatedAt": {
+            "type": "object",
+            "example": "2026-04-10T10:30:00.000Z"
+          },
+          "fromAccount": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AccountResourceDto"
+              }
+            ]
+          },
+          "toAccount": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AccountResourceDto"
+              }
+            ]
+          },
+          "success": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "id",
+          "txId",
+          "type",
+          "status",
+          "amount",
+          "createdAt",
+          "updatedAt",
+          "success"
+        ]
+      },
+      "TransactionResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "statusCode": {
+            "type": "number",
+            "example": 201
+          },
+          "message": {
+            "type": "string",
+            "example": "Request successful"
+          },
+          "timestamp": {
+            "type": "string",
+            "example": "2026-04-10T10:30:00.000Z"
+          },
+          "path": {
+            "type": "string",
+            "example": "/api/transactions"
+          },
+          "data": {
+            "$ref": "#/components/schemas/TransactionResourceDto"
+          }
+        },
+        "required": [
+          "success",
+          "statusCode",
+          "message",
+          "timestamp",
+          "path",
+          "data"
+        ]
+      },
+      "TransactionListResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "statusCode": {
+            "type": "number",
+            "example": 200
+          },
+          "message": {
+            "type": "string",
+            "example": "Request successful"
+          },
+          "timestamp": {
+            "type": "string",
+            "example": "2026-04-10T10:30:00.000Z"
+          },
+          "path": {
+            "type": "string",
+            "example": "/api/transactions"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TransactionResourceDto"
+            }
+          }
+        },
+        "required": [
+          "success",
+          "statusCode",
+          "message",
+          "timestamp",
+          "path",
+          "data"
+        ]
+      }
+    }
+  }
+}
