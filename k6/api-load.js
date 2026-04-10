@@ -27,6 +27,10 @@ const transactionDuration = new Trend('transaction_duration', true);
 const readDuration = new Trend('read_duration', true);
 const transactionConflictRate = new Rate('transaction_conflict_rate');
 const transactionCreatedCounter = new Counter('transactions_created');
+const unexpectedTransactionStatusCounter = new Counter(
+  'unexpected_transaction_status',
+);
+const unexpectedReadStatusCounter = new Counter('unexpected_read_status');
 
 function apiUrl(path) {
   return buildUrl(baseUrl, `${apiPrefix}${path}`);
@@ -77,6 +81,16 @@ export function listAccountsScenario() {
 
     readDuration.add(response.timings.duration);
 
+    if (response.status !== 200) {
+      unexpectedReadStatusCounter.add(1, {
+        endpoint: 'GET /accounts',
+        status: String(response.status),
+      });
+      console.error(
+        `[k6] unexpected read response GET /accounts -> ${response.status}: ${response.body}`,
+      );
+    }
+
     check(response, {
       'accounts list status is 200': (res) => res.status === 200,
       'accounts list is wrapped': (res) => Array.isArray(unwrapData(res)),
@@ -98,6 +112,16 @@ export function listTransactionsScenario(data) {
     );
 
     readDuration.add(response.timings.duration);
+
+    if (response.status !== 200) {
+      unexpectedReadStatusCounter.add(1, {
+        endpoint: 'GET /transactions',
+        status: String(response.status),
+      });
+      console.error(
+        `[k6] unexpected read response GET /transactions -> ${response.status}: ${response.body}`,
+      );
+    }
 
     check(response, {
       'transactions list status is 200': (res) => res.status === 200,
@@ -151,6 +175,16 @@ function postTransaction(payload) {
     transactionCreatedCounter.add(1, { tx_type: payload.type });
   }
 
+  if (response.status !== 201 && response.status !== 409) {
+    unexpectedTransactionStatusCounter.add(1, {
+      tx_type: payload.type,
+      status: String(response.status),
+    });
+    console.error(
+      `[k6] unexpected transaction response ${payload.type} -> ${response.status}: ${response.body}`,
+    );
+  }
+
   check(response, {
     'transaction request accepted': (res) =>
       res.status === 201 || res.status === 409,
@@ -176,5 +210,22 @@ export function createDepositScenario(data) {
 }
 
 export function handleSummary(data) {
+  const transactionStatusMetrics = Object.entries(data.metrics)
+    .filter(([name]) => name.startsWith('unexpected_transaction_status{'))
+    .map(([name, metric]) => `${name}: ${metric.values.count}`);
+  const readStatusMetrics = Object.entries(data.metrics)
+    .filter(([name]) => name.startsWith('unexpected_read_status{'))
+    .map(([name, metric]) => `${name}: ${metric.values.count}`);
+
+  if (transactionStatusMetrics.length > 0 || readStatusMetrics.length > 0) {
+    console.log('unexpected response summary');
+    for (const line of transactionStatusMetrics) {
+      console.log(line);
+    }
+    for (const line of readStatusMetrics) {
+      console.log(line);
+    }
+  }
+
   return summarize(data);
 }

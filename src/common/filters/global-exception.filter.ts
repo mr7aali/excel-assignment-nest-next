@@ -26,10 +26,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }>();
     const request = ctx.getRequest<{ url: string }>();
 
-    const statusCode =
-      exception instanceof HttpException
-        ? exception.getStatus()
-        : HttpStatus.INTERNAL_SERVER_ERROR;
+    const statusCode = this.resolveStatusCode(exception);
 
     const exceptionResponse =
       exception instanceof HttpException ? exception.getResponse() : undefined;
@@ -70,6 +67,18 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     return undefined;
   }
 
+  private resolveStatusCode(exception: unknown): number {
+    if (exception instanceof HttpException) {
+      return exception.getStatus();
+    }
+
+    if (this.isTransactionWriteConflict(exception)) {
+      return HttpStatus.CONFLICT;
+    }
+
+    return HttpStatus.INTERNAL_SERVER_ERROR;
+  }
+
   private resolveMessage(
     exception: unknown,
     normalizedError?: ErrorDetails,
@@ -96,6 +105,37 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       typeof value === 'string' ||
       Array.isArray(value) ||
       (typeof value === 'object' && value !== null)
+    );
+  }
+
+  private isTransactionWriteConflict(exception: unknown): boolean {
+    if (!exception || typeof exception !== 'object') {
+      return false;
+    }
+
+    const record = exception as {
+      code?: string;
+      kind?: string;
+      name?: string;
+      message?: string;
+      cause?: unknown;
+      originalError?: unknown;
+    };
+
+    if (
+      record.code === '40001' ||
+      record.kind === 'TransactionWriteConflict' ||
+      record.name === 'TransactionWriteConflict' ||
+      record.message === 'TransactionWriteConflict' ||
+      record.message?.includes('TransactionWriteConflict') ||
+      record.message?.includes('could not serialize access')
+    ) {
+      return true;
+    }
+
+    return (
+      this.isTransactionWriteConflict(record.cause) ||
+      this.isTransactionWriteConflict(record.originalError)
     );
   }
 }

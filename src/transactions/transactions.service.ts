@@ -472,12 +472,48 @@ export class TransactionsService {
   }
 
   private isRetryableTransactionError(error: unknown) {
+    return this.hasRetryableTransactionSignal(error);
+  }
+
+  private hasRetryableTransactionSignal(error: unknown): boolean {
+    if (!error) {
+      return false;
+    }
+
     if (error instanceof RetryableConcurrencyError) {
       return true;
     }
 
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       return error.code === 'P2034';
+    }
+
+    if (typeof error === 'object') {
+      const record = error as {
+        code?: string;
+        kind?: string;
+        name?: string;
+        message?: string;
+        cause?: unknown;
+        originalError?: unknown;
+      };
+
+      if (
+        record.code === 'P2034' ||
+        record.code === '40001' ||
+        record.kind === 'TransactionWriteConflict' ||
+        record.name === 'TransactionWriteConflict' ||
+        record.message === 'TransactionWriteConflict' ||
+        record.message?.includes('could not serialize access') ||
+        record.message?.includes('TransactionWriteConflict')
+      ) {
+        return true;
+      }
+
+      return (
+        this.hasRetryableTransactionSignal(record.cause) ||
+        this.hasRetryableTransactionSignal(record.originalError)
+      );
     }
 
     return false;
