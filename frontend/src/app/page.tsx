@@ -1,5 +1,6 @@
 'use client';
 
+import './dashboard.css';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 
@@ -10,8 +11,6 @@ type Account = {
   balance: number;
   version: number;
   isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
 };
 
 type Transaction = {
@@ -20,21 +19,13 @@ type Transaction = {
   type: 'deposit' | 'withdraw' | 'transfer';
   status: 'pending' | 'success' | 'failed';
   amount: number;
-  description?: string | null;
   failureReason?: string | null;
   createdAt: string;
-  updatedAt: string;
   fromAccount?: Account | null;
   toAccount?: Account | null;
-  success: boolean;
 };
 
 type ApiResponse<T> = {
-  success: boolean;
-  statusCode: number;
-  message: string;
-  timestamp: string;
-  path: string;
   data: T;
 };
 
@@ -45,7 +36,6 @@ type ApiError = {
 
 type ActivityEvent = {
   id: string;
-  kind: 'transaction:created' | 'balance:updated' | 'transaction:failed';
   title: string;
   subtitle: string;
   at: string;
@@ -71,6 +61,8 @@ const defaultTransactionForm = {
   idempotencyKey: '',
 };
 
+const transactionTypeOptions = ['DEPOSIT', 'WITHDRAW', 'TRANSFER'] as const;
+
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -83,14 +75,9 @@ function formatDate(value: string) {
   return new Date(value).toLocaleString();
 }
 
-function toActivityEvent(
-  kind: ActivityEvent['kind'],
-  title: string,
-  subtitle: string,
-): ActivityEvent {
+function createActivityEvent(title: string, subtitle: string): ActivityEvent {
   return {
     id: crypto.randomUUID(),
-    kind,
     title,
     subtitle,
     at: new Date().toISOString(),
@@ -112,11 +99,8 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const rawBody = await response.text();
 
   if (!contentType.includes('application/json')) {
-    const preview = rawBody.slice(0, 120).trim();
     throw new Error(
-      `Expected JSON from ${url}, but received ${contentType || 'an unknown content type'}. ` +
-        `This usually means the API URL is wrong or the backend is not running. ` +
-        `Response preview: ${preview || '[empty response]'}`,
+      `Expected JSON from ${url}. Make sure the backend is running and the frontend API URL is correct.`,
     );
   }
 
@@ -125,10 +109,7 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     payload = JSON.parse(rawBody) as T | ApiError;
   } catch {
-    throw new Error(
-      `Received an invalid JSON response from ${url}. ` +
-        `Please verify the backend is running and returning API data.`,
-    );
+    throw new Error(`Received an invalid JSON response from ${url}.`);
   }
 
   if (!response.ok) {
@@ -146,6 +127,13 @@ export default function Home() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [events, setEvents] = useState<ActivityEvent[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState('');
+  const [activeFormTab, setActiveFormTab] = useState<'account' | 'transaction'>(
+    'account',
+  );
+  const [activeSideTab, setActiveSideTab] = useState<'accounts' | 'events'>(
+    'accounts',
+  );
   const [accountForm, setAccountForm] = useState(defaultAccountForm);
   const [transactionForm, setTransactionForm] = useState(
     defaultTransactionForm,
@@ -156,16 +144,32 @@ export default function Home() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const totalBalance = useMemo(
-    () => accounts.reduce((sum, account) => sum + account.balance, 0),
-    [accounts],
+  const selectedAccount = useMemo(
+    () =>
+      accounts.find((account) => account.accountId === selectedAccountId) ??
+      accounts[0] ??
+      null,
+    [accounts, selectedAccountId],
   );
 
-  const successfulTransactions = useMemo(
+  const selectedTransactions = useMemo(() => {
+    if (!selectedAccount) {
+      return transactions;
+    }
+
+    return transactions.filter(
+      (transaction) =>
+        transaction.fromAccount?.accountId === selectedAccount.accountId ||
+        transaction.toAccount?.accountId === selectedAccount.accountId,
+    );
+  }, [selectedAccount, transactions]);
+
+  const selectedSuccessCount = useMemo(
     () =>
-      transactions.filter((transaction) => transaction.status === 'success')
-        .length,
-    [transactions],
+      selectedTransactions.filter(
+        (transaction) => transaction.status === 'success',
+      ).length,
+    [selectedTransactions],
   );
 
   async function loadDashboardData() {
@@ -194,6 +198,12 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    if (!selectedAccountId && accounts.length > 0) {
+      setSelectedAccountId(accounts[0].accountId);
+    }
+  }, [accounts, selectedAccountId]);
+
+  useEffect(() => {
     const socket: Socket = io(SOCKET_URL, {
       transports: ['websocket'],
     });
@@ -201,13 +211,12 @@ export default function Home() {
     socket.on('transaction:created', (payload: Transaction) => {
       setEvents((current) =>
         [
-          toActivityEvent(
-            'transaction:created',
+          createActivityEvent(
             `${payload.type.toUpperCase()} completed`,
             `${formatCurrency(payload.amount)} | ${payload.txId}`,
           ),
           ...current,
-        ].slice(0, 10),
+        ].slice(0, 8),
       );
       void loadDashboardData();
     });
@@ -217,13 +226,12 @@ export default function Home() {
       (payload: { account: Account; transactionId: string }) => {
         setEvents((current) =>
           [
-            toActivityEvent(
-              'balance:updated',
+            createActivityEvent(
               `Balance updated for ${payload.account.accountId}`,
               `${formatCurrency(payload.account.balance)} | ${payload.transactionId}`,
             ),
             ...current,
-          ].slice(0, 10),
+          ].slice(0, 8),
         );
         setAccounts((current) =>
           current.map((account) =>
@@ -238,13 +246,12 @@ export default function Home() {
     socket.on('transaction:failed', (payload: Transaction) => {
       setEvents((current) =>
         [
-          toActivityEvent(
-            'transaction:failed',
+          createActivityEvent(
             'Transaction failed',
             payload.failureReason || payload.txId,
           ),
           ...current,
-        ].slice(0, 10),
+        ].slice(0, 8),
       );
       void loadDashboardData();
     });
@@ -327,306 +334,405 @@ export default function Home() {
   const needsToAccount =
     transactionForm.type === 'DEPOSIT' || transactionForm.type === 'TRANSFER';
 
+  function handleTransactionTypeChange(
+    nextType: (typeof transactionTypeOptions)[number],
+  ) {
+    setTransactionForm((current) => ({
+      ...current,
+      type: nextType,
+      fromAccountId: nextType === 'DEPOSIT' ? '' : current.fromAccountId,
+      toAccountId: nextType === 'WITHDRAW' ? '' : current.toAccountId,
+    }));
+  }
+
   return (
-    <main className="dashboard-shell">
-      <section className="stats-grid" style={{ border: '1px solid red' }}>
-        <article className="stat-card">
-          <span>Total Accounts</span>
-          <strong>{accounts.length}</strong>
+    <main className="ds-shell">
+      <section className="ds-topbar">
+        <div className="ds-topbar__title">
+          <span className="ds-topbar__eyebrow">Selected user</span>
+          <h1>{selectedAccount?.holderName ?? 'No account selected'}</h1>
+        </div>
+        <label className="ds-select">
+          <span>Account</span>
+          <div className="ds-select__control">
+            <select
+              value={selectedAccount?.accountId ?? ''}
+              onChange={(event) => setSelectedAccountId(event.target.value)}
+              disabled={accounts.length === 0}
+            >
+              {accounts.length === 0 ? <option value="">No accounts</option> : null}
+              {accounts.map((account) => (
+                <option key={account.id} value={account.accountId}>
+                  {account.holderName} ({account.accountId})
+                </option>
+              ))}
+            </select>
+          </div>
+        </label>
+      </section>
+
+      <section className="ds-stats">
+        <article className="ds-stat">
+          <span>Balance</span>
+          <strong>
+            {selectedAccount
+              ? formatCurrency(selectedAccount.balance)
+              : formatCurrency(0)}
+          </strong>
+          <p>{selectedAccount?.accountId ?? 'No account selected'}</p>
         </article>
-        <article className="stat-card">
-          <span>Total Balance</span>
-          <strong>{formatCurrency(totalBalance)}</strong>
+        <article className="ds-stat">
+          <span>Transactions</span>
+          <strong>{selectedTransactions.length}</strong>
+          <p>{selectedAccount ? 'Filtered to account' : 'All transactions'}</p>
         </article>
-        <article className="stat-card">
-          <span>Recent Transactions</span>
-          <strong>{transactions.length}</strong>
+        <article className="ds-stat">
+          <span>Version</span>
+          <strong>{selectedAccount?.version ?? '--'}</strong>
+          <p>
+            <span
+              className={`ds-badge ${
+                selectedAccount?.isActive ? 'ds-badge--active' : ''
+              }`}
+            >
+              {selectedAccount
+                ? selectedAccount.isActive
+                  ? 'Active'
+                  : 'Inactive'
+                : 'Unavailable'}
+            </span>
+          </p>
         </article>
-        <article className="stat-card">
-          <span>Successful Transactions</span>
-          <strong>{successfulTransactions}</strong>
+        <article className="ds-stat">
+          <span>Successful</span>
+          <strong>{selectedSuccessCount}</strong>
+          <p>Completed requests</p>
         </article>
       </section>
 
       {(errorMessage || successMessage) && (
-        <section className="message-row">
+        <section className="ds-flash-stack">
           {errorMessage ? (
-            <p className="message error">{errorMessage}</p>
+            <p className="ds-flash ds-flash--error">{errorMessage}</p>
           ) : null}
           {successMessage ? (
-            <p className="message success">{successMessage}</p>
+            <p className="ds-flash ds-flash--success">{successMessage}</p>
           ) : null}
         </section>
       )}
 
-      <section className="content-grid">
-        <div className="column-stack">
-          <article className="panel">
-            <div className="panel-header">
-              <div>
-                <span className="panel-kicker">Accounts</span>
-                <h2>Create account</h2>
-              </div>
-            </div>
-            <form className="form-grid" onSubmit={handleCreateAccount}>
-              <label>
-                <span>Account ID</span>
-                <input
-                  value={accountForm.accountId}
-                  onChange={(event) =>
-                    setAccountForm((current) => ({
-                      ...current,
-                      accountId: event.target.value,
-                    }))
-                  }
-                  placeholder="ACC1001"
-                  required
-                />
-              </label>
-              <label>
-                <span>Holder Name</span>
-                <input
-                  value={accountForm.holderName}
-                  onChange={(event) =>
-                    setAccountForm((current) => ({
-                      ...current,
-                      holderName: event.target.value,
-                    }))
-                  }
-                  placeholder="John Doe"
-                  required
-                />
-              </label>
-              <label>
-                <span>Initial Balance</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={accountForm.initialBalance}
-                  onChange={(event) =>
-                    setAccountForm((current) => ({
-                      ...current,
-                      initialBalance: event.target.value,
-                    }))
-                  }
-                />
-              </label>
-              <button type="submit" disabled={submittingAccount}>
-                {submittingAccount ? 'Creating...' : 'Create Account'}
-              </button>
-            </form>
-          </article>
+      <section className="ds-main-grid">
+        <article className="ds-panel">
+          <div className="ds-tabs">
+            <button
+              type="button"
+              className={`ds-tab ${activeFormTab === 'account' ? 'ds-tab--active' : ''}`}
+              onClick={() => setActiveFormTab('account')}
+            >
+              Create account
+            </button>
+            <button
+              type="button"
+              className={`ds-tab ${activeFormTab === 'transaction' ? 'ds-tab--active' : ''}`}
+              onClick={() => setActiveFormTab('transaction')}
+            >
+              New transaction
+            </button>
+          </div>
 
-          <article className="panel">
-            <div className="panel-header">
-              <div>
-                <span className="panel-kicker">Transactions</span>
-                <h2>Execute transaction</h2>
-              </div>
-            </div>
-            <form className="form-grid" onSubmit={handleCreateTransaction}>
-              <label>
-                <span>Type</span>
-                <select
-                  value={transactionForm.type}
-                  onChange={(event) =>
-                    setTransactionForm((current) => ({
-                      ...current,
-                      type: event.target.value,
-                      fromAccountId:
-                        event.target.value === 'DEPOSIT'
-                          ? ''
-                          : current.fromAccountId,
-                      toAccountId:
-                        event.target.value === 'WITHDRAW'
-                          ? ''
-                          : current.toAccountId,
-                    }))
-                  }
-                >
-                  <option value="DEPOSIT">Deposit</option>
-                  <option value="WITHDRAW">Withdraw</option>
-                  <option value="TRANSFER">Transfer</option>
-                </select>
-              </label>
-              <label>
-                <span>Amount</span>
-                <input
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  value={transactionForm.amount}
-                  onChange={(event) =>
-                    setTransactionForm((current) => ({
-                      ...current,
-                      amount: event.target.value,
-                    }))
-                  }
-                  placeholder="250"
-                  required
-                />
-              </label>
-              {needsFromAccount ? (
-                <label>
-                  <span>From Account</span>
+          <div className="ds-panel__body">
+            {activeFormTab === 'account' ? (
+              <form className="ds-form" onSubmit={handleCreateAccount}>
+                <label className="ds-form-row">
+                  <span>Account ID</span>
                   <input
-                    value={transactionForm.fromAccountId}
+                    value={accountForm.accountId}
                     onChange={(event) =>
-                      setTransactionForm((current) => ({
+                      setAccountForm((current) => ({
                         ...current,
-                        fromAccountId: event.target.value,
+                        accountId: event.target.value,
                       }))
                     }
                     placeholder="ACC1001"
-                    required={needsFromAccount}
+                    required
                   />
                 </label>
-              ) : null}
-              {needsToAccount ? (
-                <label>
-                  <span>To Account</span>
+                <label className="ds-form-row">
+                  <span>Holder Name</span>
                   <input
-                    value={transactionForm.toAccountId}
+                    value={accountForm.holderName}
+                    onChange={(event) =>
+                      setAccountForm((current) => ({
+                        ...current,
+                        holderName: event.target.value,
+                      }))
+                    }
+                    placeholder="John Doe"
+                    required
+                  />
+                </label>
+                <label className="ds-form-row ds-form-row--single">
+                  <span>Initial Balance</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={accountForm.initialBalance}
+                    onChange={(event) =>
+                      setAccountForm((current) => ({
+                        ...current,
+                        initialBalance: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                <div className="ds-form-row ds-form-row--single">
+                  <button
+                    type="submit"
+                    className="ds-btn"
+                    disabled={submittingAccount}
+                  >
+                    {submittingAccount ? 'Creating...' : 'Create Account'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <form className="ds-form" onSubmit={handleCreateTransaction}>
+                <div className="ds-form-row ds-form-row--single">
+                  <span>Transaction Type</span>
+                  <div className="ds-transaction-tabs">
+                    {transactionTypeOptions.map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        className={`ds-tab ds-transaction-tab ${
+                          transactionForm.type === type ? 'ds-tab--active' : ''
+                        }`}
+                        onClick={() => handleTransactionTypeChange(type)}
+                      >
+                        {type === 'DEPOSIT'
+                          ? 'Deposit'
+                          : type === 'WITHDRAW'
+                            ? 'Withdraw'
+                            : 'Transfer'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <label className="ds-form-row">
+                  <span>Amount</span>
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={transactionForm.amount}
                     onChange={(event) =>
                       setTransactionForm((current) => ({
                         ...current,
-                        toAccountId: event.target.value,
+                        amount: event.target.value,
                       }))
                     }
-                    placeholder="ACC1002"
-                    required={needsToAccount}
+                    placeholder="250"
+                    required
                   />
                 </label>
-              ) : null}
-              <label>
-                <span>Description</span>
-                <input
-                  value={transactionForm.description}
-                  onChange={(event) =>
-                    setTransactionForm((current) => ({
-                      ...current,
-                      description: event.target.value,
-                    }))
-                  }
-                  placeholder="Optional note"
-                />
-              </label>
-              <label>
-                <span>Idempotency Key</span>
-                <input
-                  value={transactionForm.idempotencyKey}
-                  onChange={(event) =>
-                    setTransactionForm((current) => ({
-                      ...current,
-                      idempotencyKey: event.target.value,
-                    }))
-                  }
-                  placeholder="transfer-001"
-                />
-              </label>
-              <button type="submit" disabled={submittingTransaction}>
-                {submittingTransaction ? 'Submitting...' : 'Submit Transaction'}
-              </button>
-            </form>
-          </article>
-        </div>
+                {needsFromAccount ? (
+                  <label className="ds-form-row">
+                    <span>From Account</span>
+                    <input
+                      value={transactionForm.fromAccountId}
+                      onChange={(event) =>
+                        setTransactionForm((current) => ({
+                          ...current,
+                          fromAccountId: event.target.value,
+                        }))
+                      }
+                      placeholder="ACC1001"
+                      required={needsFromAccount}
+                    />
+                  </label>
+                ) : null}
+                {needsToAccount ? (
+                  <label className="ds-form-row">
+                    <span>To Account</span>
+                    <input
+                      value={transactionForm.toAccountId}
+                      onChange={(event) =>
+                        setTransactionForm((current) => ({
+                          ...current,
+                          toAccountId: event.target.value,
+                        }))
+                      }
+                      placeholder="ACC1002"
+                      required={needsToAccount}
+                    />
+                  </label>
+                ) : null}
+                <label className="ds-form-row ds-form-row--single">
+                  <span>Description</span>
+                  <input
+                    value={transactionForm.description}
+                    onChange={(event) =>
+                      setTransactionForm((current) => ({
+                        ...current,
+                        description: event.target.value,
+                      }))
+                    }
+                    placeholder="Optional note"
+                  />
+                </label>
+                <label className="ds-form-row ds-form-row--single">
+                  <span>Idempotency Key</span>
+                  <input
+                    value={transactionForm.idempotencyKey}
+                    onChange={(event) =>
+                      setTransactionForm((current) => ({
+                        ...current,
+                        idempotencyKey: event.target.value,
+                      }))
+                    }
+                    placeholder="transfer-001"
+                  />
+                </label>
+                <div className="ds-form-row ds-form-row--single">
+                  <button
+                    type="submit"
+                    className="ds-btn"
+                    disabled={submittingTransaction}
+                  >
+                    {submittingTransaction ? 'Submitting...' : 'Submit Transaction'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </article>
 
-        <div className="column-stack">
-          <article className="panel">
-            <div className="panel-header">
-              <div>
-                <span className="panel-kicker">Live State</span>
-                <h2>Accounts overview</h2>
-              </div>
-              <button
-                className="ghost-button"
-                onClick={() => void loadDashboardData()}
-              >
-                Refresh
-              </button>
-            </div>
-            <div className="account-list">
-              {loading ? (
-                <p className="empty-state">Loading accounts...</p>
-              ) : null}
-              {!loading && accounts.length === 0 ? (
-                <p className="empty-state">No accounts created yet.</p>
-              ) : null}
-              {accounts.map((account) => (
-                <article className="account-card" key={account.id}>
-                  <div>
-                    <h3>{account.holderName}</h3>
-                    <p>{account.accountId}</p>
-                  </div>
-                  <strong>{formatCurrency(account.balance)}</strong>
-                  <div className="account-meta">
-                    <span>Version {account.version}</span>
-                    <span>{account.isActive ? 'Active' : 'Inactive'}</span>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </article>
+        <article className="ds-panel">
+          <div className="ds-tabs">
+            <button
+              type="button"
+              className={`ds-tab ${activeSideTab === 'accounts' ? 'ds-tab--active' : ''}`}
+              onClick={() => setActiveSideTab('accounts')}
+            >
+              Accounts
+            </button>
+            <button
+              type="button"
+              className={`ds-tab ${activeSideTab === 'events' ? 'ds-tab--active' : ''}`}
+              onClick={() => setActiveSideTab('events')}
+            >
+              Live events
+            </button>
+            <button
+              type="button"
+              className="ds-tab ds-tab--ghost"
+              onClick={() => void loadDashboardData()}
+            >
+              Refresh
+            </button>
+          </div>
 
-          <article className="panel">
-            <div className="panel-header">
-              <div>
-                <span className="panel-kicker">Realtime</span>
-                <h2>Activity feed</h2>
+          <div className="ds-panel__body ds-panel__body--flush">
+            {activeSideTab === 'accounts' ? (
+              <div className="ds-list" role="list">
+                {loading ? <p className="ds-empty">Loading accounts...</p> : null}
+                {!loading && accounts.length === 0 ? (
+                  <p className="ds-empty">No accounts created yet.</p>
+                ) : null}
+                {accounts.map((account) => (
+                  <button
+                    type="button"
+                    className={`ds-account-item ${
+                      selectedAccount?.accountId === account.accountId
+                        ? 'ds-account-item--active'
+                        : ''
+                    }`}
+                    key={account.id}
+                    onClick={() => setSelectedAccountId(account.accountId)}
+                  >
+                    <div className="ds-account-item__top">
+                      <div>
+                        <strong>{account.holderName}</strong>
+                        <p>{account.accountId}</p>
+                      </div>
+                      <span className="ds-capsule">
+                        {formatCurrency(account.balance)}
+                      </span>
+                    </div>
+                    <div className="ds-account-item__bottom">
+                      <span>Version {account.version}</span>
+                      <span
+                        className={`ds-badge ${
+                          account.isActive ? 'ds-badge--active' : ''
+                        }`}
+                      >
+                        {account.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                  </button>
+                ))}
               </div>
-            </div>
-            <div className="event-list">
-              {events.length === 0 ? (
-                <p className="empty-state">Socket events will appear here.</p>
-              ) : null}
-              {events.map((item) => (
-                <article
-                  className={`event-card ${item.kind.replace(':', '-')}`}
-                  key={item.id}
-                >
-                  <strong>{item.title}</strong>
-                  <p>{item.subtitle}</p>
-                  <span>{formatDate(item.at)}</span>
-                </article>
-              ))}
-            </div>
-          </article>
-        </div>
+            ) : (
+              <div className="ds-list" role="list">
+                {events.length === 0 ? (
+                  <p className="ds-empty">Socket events will appear here.</p>
+                ) : null}
+                {events.map((item) => (
+                  <article className="ds-event-item" key={item.id}>
+                    <strong>{item.title}</strong>
+                    <p>{item.subtitle}</p>
+                    <span>{formatDate(item.at)}</span>
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
+        </article>
       </section>
 
-      <section className="panel transaction-panel">
-        <div className="panel-header">
+      <section className="ds-panel">
+        <div className="ds-panel__header">
           <div>
-            <span className="panel-kicker">Audit Trail</span>
-            <h2>Recent transactions</h2>
+            <span className="ds-topbar__eyebrow">Audit trail</span>
+            <h2 className="ds-panel__title">
+              {selectedAccount
+                ? `Recent transactions for ${selectedAccount.accountId}`
+                : 'Recent transactions'}
+            </h2>
           </div>
         </div>
-        <div className="transaction-table">
-          <div className="table-head">
-            <span>Type</span>
-            <span>Accounts</span>
-            <span>Amount</span>
-            <span>Status</span>
-            <span>Created</span>
+        <div className="ds-table">
+          <div className="ds-table-header">
+            <span className="ds-table-head">Type</span>
+            <span className="ds-table-head">Accounts</span>
+            <span className="ds-table-head">Amount</span>
+            <span className="ds-table-head">Status</span>
+            <span className="ds-table-head">Created</span>
           </div>
-          {loading ? (
-            <p className="empty-state">Loading transactions...</p>
-          ) : null}
+          {loading ? <p className="ds-empty">Loading transactions...</p> : null}
           {!loading && transactions.length === 0 ? (
-            <p className="empty-state">
+            <p className="ds-empty">
               Transactions will appear after the first request.
             </p>
           ) : null}
-          {transactions.map((transaction) => (
-            <div className="table-row" key={transaction.id}>
-              <span className="capsule">{transaction.type}</span>
+          {selectedTransactions.map((transaction) => (
+            <div className="ds-table-row" key={transaction.id}>
+              <span className="ds-capsule">{transaction.type}</span>
               <span>
                 {transaction.fromAccount?.accountId || 'System'} -&gt;{' '}
                 {transaction.toAccount?.accountId || 'System'}
               </span>
               <span>{formatCurrency(transaction.amount)}</span>
-              <span className={`status-pill ${transaction.status}`}>
+              <span
+                className={`ds-pill ${
+                  transaction.status === 'success'
+                    ? 'ds-pill--success'
+                    : transaction.status === 'pending'
+                      ? 'ds-pill--pending'
+                      : 'ds-pill--failed'
+                }`}
+              >
                 {transaction.status}
               </span>
               <span>{formatDate(transaction.createdAt)}</span>
