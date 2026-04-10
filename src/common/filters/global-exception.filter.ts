@@ -121,14 +121,19 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       cause?: unknown;
       originalError?: unknown;
     };
+    const normalizedMessage = record.message?.toLowerCase();
 
     if (
       record.code === '40001' ||
+      record.code === '40P01' ||
       record.kind === 'TransactionWriteConflict' ||
       record.name === 'TransactionWriteConflict' ||
       record.message === 'TransactionWriteConflict' ||
-      record.message?.includes('TransactionWriteConflict') ||
-      record.message?.includes('could not serialize access')
+      normalizedMessage?.includes('transactionwriteconflict') ||
+      normalizedMessage?.includes('could not serialize access') ||
+      normalizedMessage?.includes('write conflict or a deadlock') ||
+      normalizedMessage?.includes('please retry your transaction') ||
+      normalizedMessage?.includes('deadlock detected')
     ) {
       return true;
     }

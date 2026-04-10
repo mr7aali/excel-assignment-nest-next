@@ -16,8 +16,10 @@ import {
 const profile = __ENV.PROFILE || 'load';
 const baseUrl = (__ENV.BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
 const apiPrefix = (__ENV.API_PREFIX || '/api').replace(/\/$/, '');
-const seedAccounts = Number(__ENV.SEED_ACCOUNTS || 24);
 const openingBalance = Number(__ENV.OPENING_BALANCE || 25000);
+const seedAccounts = Number(
+  __ENV.SEED_ACCOUNTS || defaultSeedAccountsForProfile(profile),
+);
 
 export const options = buildOptions(profile);
 
@@ -34,6 +36,35 @@ const unexpectedReadStatusCounter = new Counter('unexpected_read_status');
 
 function apiUrl(path) {
   return buildUrl(baseUrl, `${apiPrefix}${path}`);
+}
+
+function defaultSeedAccountsForProfile(currentProfile) {
+  switch (currentProfile) {
+    case 'stress':
+      return 200;
+    case 'load':
+      return 64;
+    default:
+      return 24;
+  }
+}
+
+function pickRandomAccount(accounts) {
+  return pickAccount(accounts, randomInt(0, accounts.length - 1));
+}
+
+function pickDistinctAccounts(accounts) {
+  const fromIndex = randomInt(0, accounts.length - 1);
+  let toIndex = randomInt(0, accounts.length - 1);
+
+  while (toIndex === fromIndex) {
+    toIndex = randomInt(0, accounts.length - 1);
+  }
+
+  return {
+    fromAccountId: pickAccount(accounts, fromIndex),
+    toAccountId: pickAccount(accounts, toIndex),
+  };
 }
 
 function createAccountPayload(runId, index) {
@@ -101,7 +132,7 @@ export function listAccountsScenario() {
 }
 
 export function listTransactionsScenario(data) {
-  const accountId = pickAccount(data.accounts, __ITER + __VU);
+  const accountId = pickRandomAccount(data.accounts);
 
   group('list transactions', () => {
     const response = http.get(
@@ -133,21 +164,20 @@ export function listTransactionsScenario(data) {
 }
 
 function createTransferPayload(data) {
-  const fromIndex = (__ITER + __VU) % data.accounts.length;
-  const toIndex = (fromIndex + 1) % data.accounts.length;
+  const { fromAccountId, toAccountId } = pickDistinctAccounts(data.accounts);
 
   return {
     type: 'TRANSFER',
     amount: randomInt(5, 40),
-    fromAccountId: pickAccount(data.accounts, fromIndex),
-    toAccountId: pickAccount(data.accounts, toIndex),
+    fromAccountId,
+    toAccountId,
     description: `k6 transfer ${profile}`,
     idempotencyKey: uniqueIdempotencyKey('transfer'),
   };
 }
 
 function createDepositPayload(data) {
-  const accountId = pickAccount(data.accounts, __ITER + __VU);
+  const accountId = pickRandomAccount(data.accounts);
 
   return {
     type: 'DEPOSIT',

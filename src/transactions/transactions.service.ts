@@ -497,15 +497,20 @@ export class TransactionsService {
         cause?: unknown;
         originalError?: unknown;
       };
+      const normalizedMessage = record.message?.toLowerCase();
 
       if (
         record.code === 'P2034' ||
         record.code === '40001' ||
+        record.code === '40P01' ||
         record.kind === 'TransactionWriteConflict' ||
         record.name === 'TransactionWriteConflict' ||
         record.message === 'TransactionWriteConflict' ||
-        record.message?.includes('could not serialize access') ||
-        record.message?.includes('TransactionWriteConflict')
+        normalizedMessage?.includes('could not serialize access') ||
+        normalizedMessage?.includes('transactionwriteconflict') ||
+        normalizedMessage?.includes('write conflict or a deadlock') ||
+        normalizedMessage?.includes('please retry your transaction') ||
+        normalizedMessage?.includes('deadlock detected')
       ) {
         return true;
       }
