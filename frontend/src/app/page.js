@@ -1,67 +1,18 @@
 'use client';
-
-import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { io, Socket } from 'socket.io-client';
-
-type Account = {
-  id: string;
-  accountId: string;
-  holderName: string;
-  balance: number;
-  version: number;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-};
-
-type Transaction = {
-  id: string;
-  txId: string;
-  type: 'deposit' | 'withdraw' | 'transfer';
-  status: 'pending' | 'success' | 'failed';
-  amount: number;
-  description?: string | null;
-  failureReason?: string | null;
-  createdAt: string;
-  updatedAt: string;
-  fromAccount?: Account | null;
-  toAccount?: Account | null;
-  success: boolean;
-};
-
-type ApiResponse<T> = {
-  success: boolean;
-  statusCode: number;
-  message: string;
-  timestamp: string;
-  path: string;
-  data: T;
-};
-
-type ApiError = {
-  message?: string;
-  error?: string | string[];
-};
-
-type ActivityEvent = {
-  id: string;
-  kind: 'transaction:created' | 'balance:updated' | 'transaction:failed';
-  title: string;
-  subtitle: string;
-  at: string;
-};
-
+'use strict';
+Object.defineProperty(exports, '__esModule', { value: true });
+exports.default = Home;
+const react_1 = require('react');
+const socket_io_client_1 = require('socket.io-client');
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3000/api';
 const SOCKET_URL =
   process.env.NEXT_PUBLIC_SOCKET_URL ?? API_BASE_URL.replace(/\/api\/?$/, '');
-
 const defaultAccountForm = {
   accountId: '',
   holderName: '',
   initialBalance: '0',
 };
-
 const defaultTransactionForm = {
   type: 'DEPOSIT',
   amount: '',
@@ -70,34 +21,17 @@ const defaultTransactionForm = {
   description: '',
   idempotencyKey: '',
 };
-
-function formatCurrency(value: number) {
+function formatCurrency(value) {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
     maximumFractionDigits: 2,
   }).format(value);
 }
-
-function formatDate(value: string) {
+function formatDate(value) {
   return new Date(value).toLocaleString();
 }
-
-function toActivityEvent(
-  kind: ActivityEvent['kind'],
-  title: string,
-  subtitle: string,
-): ActivityEvent {
-  return {
-    id: crypto.randomUUID(),
-    kind,
-    title,
-    subtitle,
-    at: new Date().toISOString(),
-  };
-}
-
-async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
+async function requestJson(path, init) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers: {
@@ -106,52 +40,50 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
     },
     cache: 'no-store',
   });
-
-  const payload = (await response.json()) as T | ApiError;
-
+  const payload = await response.json();
   if (!response.ok) {
-    const errorPayload = payload as ApiError;
+    const errorPayload = payload;
     const detail = Array.isArray(errorPayload.error)
       ? errorPayload.error[0]
       : errorPayload.error;
     throw new Error(detail || errorPayload.message || 'Request failed');
   }
-
-  return payload as T;
+  return payload;
 }
-
-export default function Home() {
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [events, setEvents] = useState<ActivityEvent[]>([]);
-  const [accountForm, setAccountForm] = useState(defaultAccountForm);
-  const [transactionForm, setTransactionForm] = useState(
+function Home() {
+  const [accounts, setAccounts] = (0, react_1.useState)([]);
+  const [transactions, setTransactions] = (0, react_1.useState)([]);
+  const [events, setEvents] = (0, react_1.useState)([]);
+  const [accountForm, setAccountForm] = (0, react_1.useState)(
+    defaultAccountForm,
+  );
+  const [transactionForm, setTransactionForm] = (0, react_1.useState)(
     defaultTransactionForm,
   );
-  const [loading, setLoading] = useState(true);
-  const [submittingAccount, setSubmittingAccount] = useState(false);
-  const [submittingTransaction, setSubmittingTransaction] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-
-  const totalBalance = useMemo(
+  const [loading, setLoading] = (0, react_1.useState)(true);
+  const [submittingAccount, setSubmittingAccount] = (0, react_1.useState)(
+    false,
+  );
+  const [submittingTransaction, setSubmittingTransaction] = (0,
+  react_1.useState)(false);
+  const [errorMessage, setErrorMessage] = (0, react_1.useState)(null);
+  const [successMessage, setSuccessMessage] = (0, react_1.useState)(null);
+  const totalBalance = (0, react_1.useMemo)(
     () => accounts.reduce((sum, account) => sum + account.balance, 0),
     [accounts],
   );
-
-  const successfulTransactions = useMemo(
+  const successfulTransactions = (0, react_1.useMemo)(
     () =>
       transactions.filter((transaction) => transaction.status === 'success')
         .length,
     [transactions],
   );
-
   async function loadDashboardData() {
     setLoading(true);
     try {
       const [accountsResponse, transactionsResponse] = await Promise.all([
-        requestJson<ApiResponse<Account[]>>('/accounts'),
-        requestJson<ApiResponse<Transaction[]>>('/transactions?limit=12'),
+        requestJson('/accounts'),
+        requestJson('/transactions?limit=12'),
       ]);
       setAccounts(accountsResponse.data);
       setTransactions(transactionsResponse.data);
@@ -166,80 +98,75 @@ export default function Home() {
       setLoading(false);
     }
   }
-
-  useEffect(() => {
+  (0, react_1.useEffect)(() => {
     void loadDashboardData();
   }, []);
-
-  useEffect(() => {
-    const socket: Socket = io(SOCKET_URL, {
+  (0, react_1.useEffect)(() => {
+    const socket = (0, socket_io_client_1.io)(SOCKET_URL, {
       transports: ['websocket'],
     });
-
-    socket.on('transaction:created', (payload: Transaction) => {
+    socket.on('transaction:created', (payload) => {
       setEvents((current) =>
         [
-          toActivityEvent(
-            'transaction:created',
-            `${payload.type.toUpperCase()} completed`,
-            `${formatCurrency(payload.amount)} | ${payload.txId}`,
-          ),
+          {
+            id: crypto.randomUUID(),
+            kind: 'transaction:created',
+            title: `${payload.type.toUpperCase()} completed`,
+            subtitle: `${formatCurrency(payload.amount)} • ${payload.txId}`,
+            at: new Date().toISOString(),
+          },
           ...current,
         ].slice(0, 10),
       );
       void loadDashboardData();
     });
-
-    socket.on(
-      'balance:updated',
-      (payload: { account: Account; transactionId: string }) => {
-        setEvents((current) =>
-          [
-            toActivityEvent(
-              'balance:updated',
-              `Balance updated for ${payload.account.accountId}`,
-              `${formatCurrency(payload.account.balance)} | ${payload.transactionId}`,
-            ),
-            ...current,
-          ].slice(0, 10),
-        );
-        setAccounts((current) =>
-          current.map((account) =>
-            account.accountId === payload.account.accountId
-              ? payload.account
-              : account,
-          ),
-        );
-      },
-    );
-
-    socket.on('transaction:failed', (payload: Transaction) => {
+    socket.on('balance:updated', (payload) => {
       setEvents((current) =>
         [
-          toActivityEvent(
-            'transaction:failed',
-            'Transaction failed',
-            payload.failureReason || payload.txId,
-          ),
+          {
+            id: crypto.randomUUID(),
+            kind: 'balance:updated',
+            title: `Balance updated for ${payload.account.accountId}`,
+            subtitle: `${formatCurrency(payload.account.balance)} • ${payload.transactionId}`,
+            at: new Date().toISOString(),
+          },
+          ...current,
+        ].slice(0, 10),
+      );
+      setAccounts((current) =>
+        current.map((account) =>
+          account.accountId === payload.account.accountId
+            ? payload.account
+            : account,
+        ),
+      );
+    });
+    socket.on('transaction:failed', (payload) => {
+      setEvents((current) =>
+        [
+          {
+            id: crypto.randomUUID(),
+            kind: 'transaction:failed',
+            title: `Transaction failed`,
+            subtitle: payload.failureReason || payload.txId,
+            at: new Date().toISOString(),
+          },
           ...current,
         ].slice(0, 10),
       );
       void loadDashboardData();
     });
-
     return () => {
       socket.disconnect();
     };
   }, []);
-
-  async function handleCreateAccount(event: FormEvent<HTMLFormElement>) {
+  async function handleCreateAccount(event) {
     event.preventDefault();
     setSubmittingAccount(true);
     setErrorMessage(null);
     setSuccessMessage(null);
-
     try {
-      await requestJson<ApiResponse<Account>>('/accounts', {
+      await requestJson('/accounts', {
         method: 'POST',
         body: JSON.stringify({
           accountId: accountForm.accountId,
@@ -258,18 +185,15 @@ export default function Home() {
       setSubmittingAccount(false);
     }
   }
-
-  async function handleCreateTransaction(event: FormEvent<HTMLFormElement>) {
+  async function handleCreateTransaction(event) {
     event.preventDefault();
     setSubmittingTransaction(true);
     setErrorMessage(null);
     setSuccessMessage(null);
-
-    const payload: Record<string, string | number> = {
+    const payload = {
       type: transactionForm.type,
       amount: Number(transactionForm.amount),
     };
-
     if (transactionForm.fromAccountId) {
       payload.fromAccountId = transactionForm.fromAccountId;
     }
@@ -282,9 +206,8 @@ export default function Home() {
     if (transactionForm.idempotencyKey) {
       payload.idempotencyKey = transactionForm.idempotencyKey;
     }
-
     try {
-      await requestJson<ApiResponse<Transaction>>('/transactions', {
+      await requestJson('/transactions', {
         method: 'POST',
         body: JSON.stringify(payload),
       });
@@ -299,14 +222,39 @@ export default function Home() {
       setSubmittingTransaction(false);
     }
   }
-
   const needsFromAccount =
     transactionForm.type === 'WITHDRAW' || transactionForm.type === 'TRANSFER';
   const needsToAccount =
     transactionForm.type === 'DEPOSIT' || transactionForm.type === 'TRANSFER';
-
   return (
     <main className="dashboard-shell">
+      <section className="hero-panel">
+        <div className="hero-copy" style={{ border: '1px solid red' }}>
+          <span className="eyebrow">MERN Assignment Frontend</span>
+          <h1>Concurrent Banking Transaction Dashboard</h1>
+          <p>
+            A simple frontend for creating accounts, sending deposit or transfer
+            requests, and watching balance updates arrive in real time.
+          </p>
+        </div>
+        <div className="hero-actions">
+          <a
+            href="http://localhost:3000/api/docs"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Open Swagger
+          </a>
+          <a
+            href="http://localhost:3000/api/transactions?limit=10"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Test API
+          </a>
+        </div>
+      </section>
+
       <section className="stats-grid">
         <article className="stat-card">
           <span>Total Accounts</span>
@@ -600,7 +548,7 @@ export default function Home() {
             <div className="table-row" key={transaction.id}>
               <span className="capsule">{transaction.type}</span>
               <span>
-                {transaction.fromAccount?.accountId || 'System'} -&gt;{' '}
+                {transaction.fromAccount?.accountId || 'System'} →{' '}
                 {transaction.toAccount?.accountId || 'System'}
               </span>
               <span>{formatCurrency(transaction.amount)}</span>
@@ -615,3 +563,4 @@ export default function Home() {
     </main>
   );
 }
+//# sourceMappingURL=page.js.map
