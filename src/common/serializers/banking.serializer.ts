@@ -1,4 +1,9 @@
-import { Account, Prisma, Transaction, TransactionStatus } from '@prisma/client';
+import {
+  Account,
+  Prisma,
+  Transaction,
+  TransactionStatus,
+} from '@prisma/client';
 
 type TransactionWithAccounts = Transaction & {
   fromAccount: Account | null;
@@ -6,7 +11,9 @@ type TransactionWithAccounts = Transaction & {
 };
 
 function decimalToNumber(value: Prisma.Decimal | null | undefined) {
-  return value === null || value === undefined ? null : Number(value.toString());
+  return value === null || value === undefined
+    ? null
+    : Number(value.toString());
 }
 
 export function serializeAccount(account: Account) {

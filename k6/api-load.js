@@ -20,6 +20,9 @@ const openingBalance = Number(__ENV.OPENING_BALANCE || 25000);
 const seedAccounts = Number(
   __ENV.SEED_ACCOUNTS || defaultSeedAccountsForProfile(profile),
 );
+const setupBatchSize = Number(
+  __ENV.SETUP_BATCH_SIZE || defaultSetupBatchSizeForProfile(profile),
+);
 
 export const options = buildOptions(profile);
 
@@ -40,12 +43,27 @@ function apiUrl(path) {
 
 function defaultSeedAccountsForProfile(currentProfile) {
   switch (currentProfile) {
+    case 'assignment1000':
+      return 1000;
     case 'stress':
-      return 200;
+      return 600;
     case 'load':
       return 64;
     default:
       return 24;
+  }
+}
+
+function defaultSetupBatchSizeForProfile(currentProfile) {
+  switch (currentProfile) {
+    case 'assignment1000':
+      return 50;
+    case 'stress':
+      return 25;
+    case 'load':
+      return 12;
+    default:
+      return 1;
   }
 }
 
@@ -79,26 +97,40 @@ export function setup() {
   const runId = __ENV.TEST_RUN_ID || createRunId();
   const accounts = [];
 
-  for (let index = 0; index < seedAccounts; index++) {
-    const payload = createAccountPayload(runId, index);
-    const response = http.post(
-      apiUrl('/accounts'),
-      JSON.stringify(payload),
-      {
-        headers: jsonHeaders(),
-        tags: { endpoint: 'POST /accounts', type: 'setup' },
-      },
-    );
+  for (let startIndex = 0; startIndex < seedAccounts; startIndex += setupBatchSize) {
+    const payloads = [];
+    const requests = [];
+    const endIndex = Math.min(startIndex + setupBatchSize, seedAccounts);
 
-    check(response, {
-      'setup account created': (res) => res.status === 201,
-    });
-
-    if (response.status !== 201) {
-      fail(`setup failed for account ${payload.accountId}: ${response.body}`);
+    for (let index = startIndex; index < endIndex; index++) {
+      const payload = createAccountPayload(runId, index);
+      payloads.push(payload);
+      requests.push([
+        'POST',
+        apiUrl('/accounts'),
+        JSON.stringify(payload),
+        {
+          headers: jsonHeaders(),
+          tags: { endpoint: 'POST /accounts', type: 'setup' },
+        },
+      ]);
     }
 
-    accounts.push(payload.accountId);
+    const responses = http.batch(requests);
+
+    responses.forEach((response, responseIndex) => {
+      const payload = payloads[responseIndex];
+
+      check(response, {
+        'setup account created': (res) => res.status === 201,
+      });
+
+      if (response.status !== 201) {
+        fail(`setup failed for account ${payload.accountId}: ${response.body}`);
+      }
+
+      accounts.push(payload.accountId);
+    });
   }
 
   return { accounts, runId };
@@ -177,7 +209,10 @@ function createTransferPayload(data) {
 }
 
 function createDepositPayload(data) {
-  const accountId = pickRandomAccount(data.accounts);
+  const accountId =
+    profile === 'assignment1000'
+      ? pickAccount(data.accounts, (__VU - 1) % data.accounts.length)
+      : pickRandomAccount(data.accounts);
 
   return {
     type: 'DEPOSIT',

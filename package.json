@@ -20,7 +20,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "test:load": "k6 run k6/api-load.js",
     "test:load:smoke": "k6 run -e PROFILE=smoke k6/api-load.js",
-    "test:load:stress": "k6 run -e PROFILE=stress k6/api-load.js"
+    "test:load:stress": "k6 run -e PROFILE=stress k6/api-load.js",
+    "test:load:assignment": "k6 run -e PROFILE=assignment1000 k6/api-load.js"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

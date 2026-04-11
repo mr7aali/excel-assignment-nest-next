@@ -1,40 +1,79 @@
-# Load testing with k6
+# Load Testing with k6
 
-The backend now includes a proper `k6` suite in [`k6/api-load.js`](../k6/api-load.js) that exercises the banking API under realistic concurrent traffic.
+The project includes a `k6` suite in [`k6/api-load.js`](../k6/api-load.js) to validate concurrency handling under realistic traffic.
 
-## What it tests
+## What It Tests
 
-- account listing through `GET /api/accounts`
-- transaction listing through `GET /api/transactions`
-- concurrent deposits through `POST /api/transactions`
-- concurrent transfers through `POST /api/transactions`
-- optimistic concurrency conflicts tracked through `409` responses
+- `GET /api/accounts`
+- `GET /api/transactions`
+- `POST /api/transactions` for deposits
+- `POST /api/transactions` for transfers
+- expected conflict behavior under high contention
+
+## Profiles
+
+### `smoke`
+
+- quick validation run for local sanity checks
+
+### `load`
+
+- mixed read/write workload for normal performance validation
+
+### `stress`
+
+- heavier write pressure with concurrent reads
+
+### `assignment1000`
+
+- explicit assignment profile
+- runs `1000` concurrent transaction users against `POST /api/transactions`
+- intended to demonstrate the assignment requirement of handling at least 1000 concurrent transaction requests
 
 ## Prerequisites
 
 1. Install `k6`: https://grafana.com/docs/k6/latest/set-up/install-k6/
 2. Start the backend locally on `http://localhost:8000`
-3. Make sure the database is running and migrations are applied
+3. Ensure PostgreSQL is reachable and Prisma migrations are applied
 
-## Available commands
+## Commands
 
 ```bash
 npm run test:load:smoke
 npm run test:load
 npm run test:load:stress
+npm run test:load:assignment
 ```
 
-## Useful environment variables
+## Useful Environment Variables
 
-- `BASE_URL`: target host, defaults to `http://localhost:8000`
-- `API_PREFIX`: API prefix, defaults to `/api`
-- `PROFILE`: `smoke`, `load`, or `stress`
-- `SEED_ACCOUNTS`: number of accounts created in `setup()`, defaults to `24`
-- `OPENING_BALANCE`: initial balance per seeded account, defaults to `25000`
-- `TEST_RUN_ID`: optional override for deterministic account IDs
+- `BASE_URL`: target host, default `http://localhost:8000`
+- `API_PREFIX`: default `/api`
+- `PROFILE`: `smoke`, `load`, `stress`, or `assignment1000`
+- `SEED_ACCOUNTS`: seeded account count
+- `OPENING_BALANCE`: starting balance for seeded accounts
+- `TEST_RUN_ID`: deterministic run identifier override
+
+Recommended assignment run:
+
+```bash
+npm run test:load:assignment
+```
+
+Optional higher-cardinality seeding:
+
+```bash
+$env:SEED_ACCOUNTS=400
+npm run test:load:assignment
+```
+
+## Output
+
+- Human-readable summary in stdout
+- Machine-readable summary in `k6/results/latest-summary.json`
 
 ## Notes
 
-- Every run seeds fresh account IDs, so test data does not collide by default.
-- The script treats `409` transaction conflicts as expected concurrency pressure, not infrastructure failure.
-- A machine-readable summary is written to `k6/results/latest-summary.json`.
+- Every run seeds fresh account IDs to avoid collisions.
+- `409 Conflict` responses are treated as expected concurrency pressure, not infrastructure failures.
+- The safety goal is correctness under concurrency, not zero conflicts.

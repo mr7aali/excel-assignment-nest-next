@@ -129,6 +129,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       record.kind === 'TransactionWriteConflict' ||
       record.name === 'TransactionWriteConflict' ||
       record.message === 'TransactionWriteConflict' ||
+      normalizedMessage?.includes(
+        'unable to start a transaction in the given time',
+      ) ||
       normalizedMessage?.includes('transactionwriteconflict') ||
       normalizedMessage?.includes('could not serialize access') ||
       normalizedMessage?.includes('write conflict or a deadlock') ||

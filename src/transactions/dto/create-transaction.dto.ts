@@ -38,9 +38,10 @@ export class CreateTransactionDto {
     example: 'ACC1001',
     description: 'Required for withdraw and transfer.',
   })
-  @ValidateIf((dto: CreateTransactionDto) =>
-    dto.type === TransactionType.WITHDRAW ||
-    dto.type === TransactionType.TRANSFER,
+  @ValidateIf(
+    (dto: CreateTransactionDto) =>
+      dto.type === TransactionType.WITHDRAW ||
+      dto.type === TransactionType.TRANSFER,
   )
   @IsString()
   @Matches(ACCOUNT_ID_PATTERN, {
@@ -52,9 +53,10 @@ export class CreateTransactionDto {
     example: 'ACC1002',
     description: 'Required for deposit and transfer.',
   })
-  @ValidateIf((dto: CreateTransactionDto) =>
-    dto.type === TransactionType.DEPOSIT ||
-    dto.type === TransactionType.TRANSFER,
+  @ValidateIf(
+    (dto: CreateTransactionDto) =>
+      dto.type === TransactionType.DEPOSIT ||
+      dto.type === TransactionType.TRANSFER,
   )
   @IsString()
   @Matches(ACCOUNT_ID_PATTERN, {

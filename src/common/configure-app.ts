@@ -31,7 +31,10 @@ export function configureApp(app: INestApplication): INestApplication {
     .setVersion('1.0')
     .addServer(`/${globalPrefix}`)
     .addTag('Accounts', 'Account creation and retrieval APIs')
-    .addTag('Transactions', 'Concurrent-safe deposit, withdraw, and transfer APIs')
+    .addTag(
+      'Transactions',
+      'Concurrent-safe deposit, withdraw, and transfer APIs',
+    )
     .build();
 
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);

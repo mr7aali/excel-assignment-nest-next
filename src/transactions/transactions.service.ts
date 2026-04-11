@@ -1,4 +1,7 @@
 import {
+  AccountReadStoreService,
+} from '../accounts/account-read-store.service';
+import {
   BadRequestException,
   ConflictException,
   Injectable,
@@ -7,6 +10,7 @@ import {
 import {
   Account,
   Prisma,
+  Transaction,
   TransactionStatus,
   TransactionType,
 } from '@prisma/client';
@@ -17,6 +21,17 @@ import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { ListTransactionsDto } from './dto/list-transactions.dto';
 
 const MAX_RETRIES = 8;
+const TRANSACTION_MAX_WAIT_MS = Number(
+  process.env.PRISMA_TX_MAX_WAIT_MS || 8000,
+);
+const TRANSACTION_TIMEOUT_MS = Number(
+  process.env.PRISMA_TX_TIMEOUT_MS || 12000,
+);
+const TRANSACTION_ISOLATION_LEVEL =
+  (process.env.PRISMA_TX_ISOLATION_LEVEL || '').toLowerCase() ===
+  'serializable'
+    ? Prisma.TransactionIsolationLevel.Serializable
+    : undefined;
 
 type PrismaTransactionClient = Omit<
   Prisma.TransactionClient,
@@ -51,6 +66,7 @@ export class TransactionsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly realtimeGateway: RealtimeGateway,
+    private readonly accountReadStore: AccountReadStoreService,
   ) {}
 
   async create(dto: CreateTransactionDto) {
@@ -83,10 +99,15 @@ export class TransactionsService {
             }
           },
           {
-            isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+            ...(TRANSACTION_ISOLATION_LEVEL
+              ? { isolationLevel: TRANSACTION_ISOLATION_LEVEL }
+              : {}),
+            maxWait: TRANSACTION_MAX_WAIT_MS,
+            timeout: TRANSACTION_TIMEOUT_MS,
           },
         );
 
+        this.syncAccountReadStore(transaction);
         this.publishRealtimeEvents(transaction);
         return serializeTransaction(transaction);
       } catch (error: any) {
@@ -240,7 +261,9 @@ export class TransactionsService {
       },
     });
 
-    return this.loadTransactionOrThrow(tx, transaction.id);
+    return this.finalizeTransaction(tx, transaction, {
+      toAccount: this.buildAccountSnapshot(destination, updatedDestination),
+    });
   }
 
   private async handleWithdraw(
@@ -248,7 +271,10 @@ export class TransactionsService {
     dto: CreateTransactionDto,
   ) {
     const amount = new Prisma.Decimal(dto.amount);
-    const source = await this.getActiveAccountByAccountId(tx, dto.fromAccountId!);
+    const source = await this.getActiveAccountByAccountId(
+      tx,
+      dto.fromAccountId!,
+    );
 
     if (source.balance.lessThan(amount)) {
       const failedTransaction = await tx.transaction.create({
@@ -267,7 +293,9 @@ export class TransactionsService {
         },
       });
 
-      return this.loadTransactionOrThrow(tx, failedTransaction.id);
+      return this.finalizeTransaction(tx, failedTransaction, {
+        fromAccount: source,
+      });
     }
 
     const updatedSource = await this.applyBalanceMutation(
@@ -291,7 +319,9 @@ export class TransactionsService {
       },
     });
 
-    return this.loadTransactionOrThrow(tx, transaction.id);
+    return this.finalizeTransaction(tx, transaction, {
+      fromAccount: this.buildAccountSnapshot(source, updatedSource),
+    });
   }
 
   private async handleTransfer(
@@ -326,7 +356,10 @@ export class TransactionsService {
         },
       });
 
-      return this.loadTransactionOrThrow(tx, failedTransaction.id);
+      return this.finalizeTransaction(tx, failedTransaction, {
+        fromAccount: source,
+        toAccount: destination,
+      });
     }
 
     const updatedSource = await this.applyBalanceMutation(
@@ -360,7 +393,10 @@ export class TransactionsService {
       },
     });
 
-    return this.loadTransactionOrThrow(tx, transaction.id);
+    return this.finalizeTransaction(tx, transaction, {
+      fromAccount: this.buildAccountSnapshot(source, updatedSource),
+      toAccount: this.buildAccountSnapshot(destination, updatedDestination),
+    });
   }
 
   private async getActiveAccountByAccountId(
@@ -390,10 +426,9 @@ export class TransactionsService {
         isActive: true,
       },
       data: {
-        balance:
-          delta.isNegative()
-            ? { decrement: delta.absoluteValue() }
-            : { increment: delta },
+        balance: delta.isNegative()
+          ? { decrement: delta.absoluteValue() }
+          : { increment: delta },
         version: { increment: 1 },
       },
     });
@@ -430,6 +465,53 @@ export class TransactionsService {
     return transaction;
   }
 
+  private buildAccountSnapshot(
+    account: Account,
+    mutation?: SuccessfulMutation,
+  ): Account {
+    if (!mutation) {
+      return account;
+    }
+
+    return {
+      ...account,
+      balance: mutation.balanceAfter,
+      version: mutation.versionAfter,
+    };
+  }
+
+  private attachTransactionAccounts(
+    transaction: Transaction,
+    accounts: {
+      fromAccount?: Account | null;
+      toAccount?: Account | null;
+    },
+  ): TransactionWithAccounts {
+    return {
+      ...transaction,
+      fromAccount: accounts.fromAccount ?? null,
+      toAccount: accounts.toAccount ?? null,
+    };
+  }
+
+  private async finalizeTransaction(
+    tx: PrismaTransactionClient,
+    transaction: Partial<Transaction> & { id: string },
+    accounts: {
+      fromAccount?: Account | null;
+      toAccount?: Account | null;
+    },
+  ): Promise<TransactionWithAccounts> {
+    if (!transaction.type || !transaction.status || !transaction.amount) {
+      return this.loadTransactionOrThrow(tx, transaction.id);
+    }
+
+    return this.attachTransactionAccounts(
+      transaction as Transaction,
+      accounts,
+    );
+  }
+
   private async findByIdempotencyKey(
     tx: TransactionReader,
     idempotencyKey: string,
@@ -462,12 +544,23 @@ export class TransactionsService {
 
     if (
       payload.toAccount &&
-      (!payload.fromAccount || payload.toAccount.accountId !== payload.fromAccount.accountId)
+      (!payload.fromAccount ||
+        payload.toAccount.accountId !== payload.fromAccount.accountId)
     ) {
       this.realtimeGateway.emitBalanceUpdated({
         transactionId: payload.txId,
         account: payload.toAccount,
       });
+    }
+  }
+
+  private syncAccountReadStore(transaction: TransactionWithAccounts) {
+    if (transaction.fromAccount) {
+      this.accountReadStore.upsert(transaction.fromAccount);
+    }
+
+    if (transaction.toAccount) {
+      this.accountReadStore.upsert(transaction.toAccount);
     }
   }
 
@@ -506,6 +599,10 @@ export class TransactionsService {
         record.kind === 'TransactionWriteConflict' ||
         record.name === 'TransactionWriteConflict' ||
         record.message === 'TransactionWriteConflict' ||
+        normalizedMessage?.includes(
+          'unable to start a transaction in the given time',
+        ) ||
+        normalizedMessage?.includes('transaction api error') ||
         normalizedMessage?.includes('could not serialize access') ||
         normalizedMessage?.includes('transactionwriteconflict') ||
         normalizedMessage?.includes('write conflict or a deadlock') ||

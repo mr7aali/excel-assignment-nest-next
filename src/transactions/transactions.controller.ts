@@ -25,7 +25,9 @@ import { TransactionsService } from './transactions.service';
 export class TransactionsController {
   constructor(private readonly transactionsService: TransactionsService) {}
 
-  @ApiOperation({ summary: 'Create a deposit, withdraw, or transfer transaction' })
+  @ApiOperation({
+    summary: 'Create a deposit, withdraw, or transfer transaction',
+  })
   @ApiBody({ type: CreateTransactionDto })
   @ApiCreatedResponse({ type: TransactionResponseDto })
   @ApiBadRequestResponse({
@@ -47,8 +49,16 @@ export class TransactionsController {
 
   @ApiOperation({ summary: 'List transactions with optional filters' })
   @ApiQuery({ name: 'accountId', required: false, example: 'ACC1001' })
-  @ApiQuery({ name: 'type', required: false, enum: ['DEPOSIT', 'WITHDRAW', 'TRANSFER'] })
-  @ApiQuery({ name: 'status', required: false, enum: ['PENDING', 'SUCCESS', 'FAILED'] })
+  @ApiQuery({
+    name: 'type',
+    required: false,
+    enum: ['DEPOSIT', 'WITHDRAW', 'TRANSFER'],
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['PENDING', 'SUCCESS', 'FAILED'],
+  })
   @ApiQuery({ name: 'limit', required: false, example: 50 })
   @ApiOkResponse({ type: TransactionListResponseDto })
   @Get()
