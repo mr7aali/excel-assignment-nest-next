@@ -148,7 +148,15 @@ export function TransactionFormPanel({
             <button
               type="submit"
               className="ds-btn"
-              disabled={submittingTransaction || !selectedAccount || !canSubmit}
+              disabled={submittingTransaction || !selectedAccount}
+              data-loading={submittingTransaction}
+              title={
+                !selectedAccount
+                  ? 'Select an account first'
+                  : !canSubmit
+                    ? 'Complete the required fields to submit'
+                    : undefined
+              }
             >
               {submittingTransaction ? 'Submitting...' : 'Submit Transaction'}
             </button>
